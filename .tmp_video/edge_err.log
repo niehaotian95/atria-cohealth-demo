@@ -1,0 +1,4 @@
+[1001/204611.181:ERROR:third_party\crashpad\crashpad\client\crashpad_client_win.cc:447] OpenProcess: 拒绝访问。 (0x5)
+[31248:3416:1001/204611.472:FATAL:mojo\public\cpp\platform\platform_channel.cc:183] Check failed: . : 拒绝访问。 (0x5)
+[31248:28616:1001/204611.482:ERROR:chrome\installer\util\google_update_settings_win.cc:544] Failed opening key Software\Microsoft\EdgeUpdate\ClientStateMedium\{56EB18F8-B008-4CBD-B6D2-8C97FE7E9062} to set usagestats; result: 5
+[1001/204611.482:ERROR:third_party\crashpad\crashpad\client\crashpad_client_win.cc:156] crash server failed to launch

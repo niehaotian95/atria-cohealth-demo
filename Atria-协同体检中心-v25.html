@@ -1,0 +1,3049 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<script>
+/* 主题预置：样式绘制前应用，避免刷新闪烁（localStorage 优先，其次系统偏好） */
+(function(){
+  try{
+    var t=localStorage.getItem("atria_demo_theme");
+    var dark=t==="dark"||(t===null&&window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches);
+    if(dark)document.documentElement.setAttribute("data-theme","dark");
+  }catch(e){}
+})();
+</script>
+<title>协同体检中心 · 代建制公共工程跨组织协同诊断报告单</title>
+<style>
+  /* v11：语义多色 —— 每个颜色承包一块语义，多而不乱
+     主色靛蓝=主要交互/权责维 · 五维各持签名色 · 严重度 红/琥珀/石板 · 健康档 翠/靛/红 */
+  :root{
+    --bg:#f4f6f9; --paper:#ffffff; --ink:#182230; --muted:#5b6b80;
+    --line:#dce2ea; --track:#e7ebf0;
+    --main:#3b5bdb; --main-d:#2f46b0; --main-soft:#edf0fd;      /* 主交互：靛蓝 */
+    --accent:#7c3aed; --accent-soft:#f1ecfd;                     /* 监管类点缀：紫 */
+    --alert:#dc2626; --alert-soft:#fdecec;                       /* 告警：红 */
+    --warn:#d97706; --warn-soft:#fdf1e3;                         /* 中风险：琥珀 */
+    --calm:#475569; --calm-soft:#eef1f5;                         /* 低风险：中性石板 */
+    --band-good:#059669; --band-mid:#3b5bdb; --band-bad:#dc2626; /* 健康档：翠/靛/红 */
+    --dim0:#3b5bdb; --dim1:#0891b2; --dim2:#7c3aed; --dim3:#059669; --dim4:#db2777;
+    --shadow:0 6px 22px rgba(24,34,48,.10);
+    --shadow-sm:0 2px 8px rgba(24,34,48,.08);
+    --report-bg:#ffffff; --net-bg1:#ffffff; --net-bg2:#f2f5f9;
+    --serif:Georgia,"Times New Roman","Songti SC",serif;
+  }
+  [data-theme="dark"]{
+    --bg:#0b1120; --paper:#141c2e; --ink:#e6eaf2; --muted:#8a96ab;
+    --line:#28324a; --track:#1e2740;
+    --main:#818cf8; --main-d:#a5b4fc; --main-soft:#1c2542;
+    --accent:#a78bfa; --accent-soft:#241d3d;
+    --alert:#f0524a; --alert-soft:#3a1f20;
+    --warn:#fbbf24; --warn-soft:#3a2c12;
+    --calm:#94a3b8; --calm-soft:#1f2837;
+    --band-good:#34d399; --band-mid:#818cf8; --band-bad:#f0524a;
+    --dim0:#818cf8; --dim1:#22d3ee; --dim2:#a78bfa; --dim3:#34d399; --dim4:#f472b6;
+    --shadow:0 6px 22px rgba(0,0,0,.5);
+    --shadow-sm:0 2px 8px rgba(0,0,0,.4);
+    --report-bg:#101728; --net-bg1:#101728; --net-bg2:#141c2e;
+  }
+  button{font-family:inherit;}
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:-apple-system,"Segoe UI","Microsoft YaHei","PingFang SC",sans-serif;
+    background:var(--bg);color:var(--ink);line-height:1.65;}
+  /* masthead（报告单式页眉） */
+  header.masthead{background:var(--paper);border-bottom:1px solid var(--line);
+    padding:22px 30px 14px;position:relative;}
+  .mh-top{display:flex;flex-wrap:wrap;align-items:flex-start;gap:16px;}
+  .mh-kicker{font-size:11px;letter-spacing:2.5px;color:var(--main);font-weight:700;margin-bottom:4px;}
+  header h1{font-size:26px;letter-spacing:2px;color:var(--ink);font-weight:800;}
+  .mh-sub{font-size:12.5px;color:var(--muted);margin-top:4px;letter-spacing:.5px;}
+  .mh-right{margin-left:auto;text-align:right;}
+  .mh-no{font-size:11.5px;color:var(--muted);}
+  .mh-no b{font-family:var(--serif);color:var(--ink);font-size:13px;letter-spacing:1px;}
+  .mh-date{font-size:11.5px;color:var(--muted);margin-top:3px;font-family:var(--serif);}
+  .mh-double{height:5px;border-top:1px solid var(--alert);border-bottom:2px solid var(--alert);
+    margin:14px 0 0;opacity:.85;}
+  .meta{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px;}
+  .chip{background:var(--bg);border:1px solid var(--line);
+    border-radius:6px;padding:4px 13px;font-size:12.5px;color:var(--ink);}
+  .chip.warn{background:var(--alert);border-color:var(--alert);color:#fff;}
+  /* layout */
+  .wrap{display:grid;grid-template-columns:1fr 340px;gap:16px;padding:20px 30px 40px;max-width:1260px;}
+  .card{background:var(--paper);border:1px solid var(--line);border-radius:14px;
+    padding:20px 22px;box-shadow:var(--shadow);margin-bottom:16px;}
+  .card h2{font-size:16.5px;color:var(--ink);margin-bottom:4px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-weight:700;}
+  .card .no{background:var(--main);color:#fff;border-radius:6px;font-size:11.5px;   /* v18：选择器放宽，英雄区 caption 下的徽章同样生效 */
+    width:22px;height:22px;display:inline-flex;align-items:center;justify-content:center;flex:none;font-weight:700;}
+  .hint{font-size:12px;color:var(--muted);margin-bottom:12px;}
+  /* hero（体检总览） */
+  .hero-card{display:grid;grid-template-columns:300px 1fr;gap:24px;align-items:center;
+    border-top:3px solid var(--main);}
+  .hero-cap{font-size:12px;letter-spacing:2px;color:var(--main);font-weight:700;margin-bottom:6px;}
+  .hero-score{display:flex;align-items:baseline;gap:6px;}
+  .hs-num{font-family:var(--serif);font-size:88px;font-weight:700;line-height:1;
+    color:var(--ink);transition:opacity .3s;}
+  .hs-unit{font-size:16px;color:var(--muted);font-weight:600;}
+  .hero-grade-row{display:flex;align-items:center;gap:14px;margin-top:10px;}
+  .seal{position:relative;width:66px;height:66px;border-radius:50%;border:2px solid var(--alert);
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    color:var(--alert);transform:rotate(-8deg);font-size:11px;font-weight:800;letter-spacing:2px;flex:none;}
+  .seal::before{content:"";position:absolute;inset:5px;border:1px solid var(--alert);border-radius:50%;}
+  .seal b{font-family:var(--serif);font-size:24px;line-height:1.1;}
+  .grade-note{font-size:13px;color:var(--muted);}
+  .hero-concl{margin-top:14px;font-size:13.5px;color:var(--ink);line-height:1.8;
+    border-left:3px solid var(--main);padding-left:12px;max-width:340px;}
+  .hero-right{display:grid;grid-template-columns:230px 1fr;gap:20px;align-items:center;}
+  .radar-box svg{width:230px;height:auto;display:block;margin:0 auto;}
+  .dim-list{display:grid;gap:6px;}
+  .dim-row{position:relative;display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center;
+    font-size:13px;padding:7px 10px 7px 14px;border-radius:8px;cursor:pointer;transition:.15s;
+    background:transparent;border:1px solid transparent;text-align:left;width:100%;font-family:inherit;color:var(--ink);}
+  .dim-row:hover{background:var(--bg);border-color:var(--line);}
+  .dim-row[aria-pressed="true"]{background:var(--main-soft);border-color:var(--main);}
+  .dim-row::before{content:"";position:absolute;left:4px;top:50%;transform:translateY(-50%);
+    width:4px;height:20px;border-radius:2px;background:var(--band-color,var(--track));}
+  .dim-row .dv{font-family:var(--serif);font-weight:700;font-size:15px;color:var(--band-color,var(--ink));}
+  .dim-row .weak{font-size:10.5px;color:var(--alert);font-weight:700;margin-left:6px;font-family:inherit;}
+  .dim-row .dcnt{font-size:10.5px;color:var(--muted);margin-left:4px;font-family:inherit;}
+  .dim-row .ddelta{font-size:10.5px;font-weight:700;margin-left:5px;font-family:inherit;}
+  .dim-row .ddelta.up{color:var(--band-good);}
+  .dim-row .ddelta.down{color:var(--alert);}
+  .dim-row .ddelta.eq{color:var(--muted);}   /* v16：持平态与 chip 一致给灰 */
+  /* v12：复查 Δ */
+  .delta-chip{font-size:11.5px;font-weight:700;border-radius:999px;padding:2px 10px;letter-spacing:.3px;}
+  .delta-chip.up{color:var(--band-good);background:rgba(5,150,105,.1);}      /* 翠绿 10% */
+  .delta-chip.down{color:var(--alert);background:rgba(220,38,38,.1);}        /* 朱红 10% */
+  .delta-chip.eq{color:var(--muted);background:var(--main-soft);}
+  /* timeline */
+  .tl{position:relative;height:124px;margin:26px 4px 6px;}
+  .tl-track{position:absolute;top:50px;left:0;right:0;height:5px;background:var(--line);border-radius:3px;}
+  .tl-fill{position:absolute;top:50px;left:0;height:5px;background:var(--main);border-radius:3px;}
+  .tl-m{position:absolute;top:43px;width:18px;height:18px;border-radius:50%;background:var(--paper);
+    border:4px solid var(--main);transform:translateX(-9px);cursor:pointer;transition:.18s;z-index:2;}
+  .tl-m:hover,.tl-m.sel{transform:translateX(-9px) scale(1.28);box-shadow:0 0 0 6px rgba(0,0,0,.18);}
+  .tl-m.sel{border-color:var(--alert);}
+  .tl-label{position:absolute;top:68px;z-index:2;font-size:11.5px;color:var(--muted);   /* v24（中）：压过 .tl-now 虚线（z-index:1），红线从阶段名身后过、不再从字中间穿过像删除线 */
+    white-space:nowrap;width:100px;text-align:center;cursor:pointer;transform:translateX(-50%);}   /* v14：中间节点居中 */
+  .tl-label:hover{color:var(--main-d);}
+  .tl-dots{position:absolute;top:90px;z-index:2;width:100px;text-align:center;pointer-events:none;   /* v24：同 .tl-label，避开 .tl-now 虚线 */
+    display:flex;justify-content:center;gap:2px;transform:translateX(-50%);}
+  .tl-dots i{width:4px;height:4px;border-radius:50%;background:var(--main);opacity:.55;}
+  .tl-date{position:absolute;top:16px;font-size:11.5px;color:var(--ink);
+    white-space:nowrap;font-weight:600;pointer-events:none;transform:translateX(-50%);}   /* v14：日期同节点居中 */
+  .tl-label.lead,.tl-date.lead,.tl-dots.lead{transform:translateX(0);text-align:left;justify-content:flex-start;}   /* v15：首末节点密度点随标签对齐 */
+  .tl-label.tail,.tl-date.tail,.tl-dots.tail{transform:translateX(-100%);text-align:right;justify-content:flex-end;}
+  /* canvas net */
+  #net{width:100%;height:500px;display:block;border-radius:10px;touch-action:none;
+    background:linear-gradient(180deg,var(--net-bg1),var(--net-bg2));border:1px solid var(--line);cursor:default;}
+  .legend{display:flex;flex-wrap:wrap;gap:14px;font-size:11.5px;color:var(--muted);margin-top:8px;}
+  .legend span{display:inline-flex;align-items:center;gap:5px;}
+  .dot{width:10px;height:10px;border-radius:50%;display:inline-block;}
+  .dot.ring{background:transparent;border:2.5px solid var(--ink);}
+  .dot.thin{background:transparent;border:1.6px solid var(--ink);width:8px;height:8px;}
+  /* blockers（卡点分诊） */
+  .triage{margin-bottom:18px;}
+  .triage:last-of-type{margin-bottom:4px;}
+  .triage-h{display:flex;align-items:center;gap:9px;font-size:12.5px;font-weight:700;
+    letter-spacing:1px;margin-bottom:9px;padding-bottom:7px;border-bottom:1px solid var(--line);}
+  .triage-h .tn{width:18px;height:18px;border-radius:50%;display:inline-flex;
+    align-items:center;justify-content:center;font-size:11px;flex:none;font-family:var(--serif);}
+  .triage-h .cnt{margin-left:auto;font-size:11px;color:var(--muted);font-weight:600;font-family:var(--serif);}
+  .triage.t-hi .triage-h{color:var(--alert);}
+  .triage.t-hi .tn{background:var(--alert);color:var(--paper);}   /* 反相 = 告警最重 */
+  .triage.t-mid .triage-h{color:var(--warn);}
+  .triage.t-mid .tn{background:var(--warn-soft);color:var(--warn);}
+  .triage.t-low .triage-h{color:var(--calm);}
+  .triage.t-low .tn{background:var(--calm-soft);color:var(--calm);}
+  .blk{border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin-bottom:10px;
+    cursor:pointer;transition:.16s;background:var(--paper);}
+  .blk:hover{border-color:var(--main);box-shadow:var(--shadow-sm);}
+  .blk.sel{border-color:var(--main);background:var(--main-soft);}
+  .blk.dim-fade{opacity:.32;}
+  .blk .bt{font-weight:700;font-size:14px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+  .sev{font-size:11px;border-radius:5px;padding:1px 8px;font-weight:600;flex:none;}
+  .sev.高{background:var(--alert);color:var(--paper);}   /* 反相 = 告警最重 */
+  .sev.中{background:var(--warn-soft);color:var(--warn);}
+  .sev.低{background:var(--calm-soft);color:var(--calm);}
+  .dim-chip{font-size:10.5px;border-radius:999px;padding:1px 9px;border:1px solid currentColor;
+    background:transparent;cursor:pointer;font-family:inherit;flex:none;}   /* v11：签名色由内联 style 注入 */
+  .dim-chip:hover{filter:brightness(.88);}
+  .blk .bd{font-size:12.5px;color:var(--muted);margin-top:3px;}
+  .blk .more{display:none;font-size:12.5px;margin-top:8px;border-top:1px dashed var(--line);padding-top:8px;}
+  .blk.open .more{display:block;}
+  /* report（报告单） */
+  .report-actions{display:flex;flex-wrap:wrap;gap:10px;align-items:center;}
+  .gen-btn{background:var(--main);color:#fff;border:none;
+    border-radius:9px;padding:11px 24px;font-size:14px;font-weight:700;cursor:pointer;
+    box-shadow:var(--shadow-sm);transition:.16s;letter-spacing:1px;}
+  .gen-btn:hover{background:var(--main-d);transform:translateY(-1px);box-shadow:var(--shadow);}
+  .gen-btn:disabled{opacity:.5;cursor:default;transform:none;box-shadow:none;}
+  .dl-btn{background:var(--paper);color:var(--main);border:1px solid var(--main);
+    border-radius:9px;padding:10px 16px;font-size:13px;font-weight:600;cursor:pointer;transition:.16s;}
+  .dl-btn:hover{background:var(--main-soft);}
+  .report{display:none;margin-top:16px;background:var(--report-bg);border:1px solid var(--line);
+    border-top:3px solid var(--alert);border-radius:10px;padding:24px 30px;font-size:13.5px;}
+  .report.show{display:block;}
+  .report h3{font-size:15px;color:var(--ink);margin:16px 0 8px;padding-bottom:6px;
+    border-bottom:1px solid var(--line);font-weight:700;letter-spacing:1px;}
+  .report h3:first-child{margin-top:0;}
+  .report p{margin-bottom:8px;min-height:0;white-space:pre-wrap;}
+  .report .concl{font-size:15.5px;line-height:1.9;color:var(--ink);background:var(--bg);
+    border-left:3px solid var(--main);padding:12px 16px;border-radius:0 8px 8px 0;margin:10px 0 14px;}
+  .report .sign{margin-top:20px;padding-top:14px;border-top:1px solid var(--line);
+    display:flex;flex-wrap:wrap;gap:18px;font-size:12px;color:var(--muted);}
+  .report .sign b{color:var(--ink);font-family:var(--serif);}
+  .report .caret{display:inline-block;width:7px;height:14px;background:var(--main);
+    vertical-align:-2px;animation:blink .8s steps(1) infinite;}
+  @keyframes blink{50%{opacity:0;}}
+  /* data panel */
+  .io-row{display:flex;flex-wrap:wrap;gap:10px;align-items:center;}
+  .scene-row{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-top:12px;}
+  .scene-btns{display:contents;}   /* v12：动态场景按钮容器透明参与排版 */
+  .scene-lab{font-size:11.5px;color:var(--muted);flex:none;letter-spacing:.5px;}
+  .scene-btn{border:1px solid var(--line);background:var(--paper);border-radius:999px;
+    padding:5px 14px;font-size:12.5px;color:var(--ink);cursor:pointer;transition:.16s;font-weight:600;}
+  .scene-btn:hover{border-color:var(--main);background:var(--main-soft);}
+  .scene-btn[aria-pressed="true"]{background:var(--main);border-color:var(--main);color:#fff;}
+  .io-btn{background:var(--paper);color:var(--ink);border:1px solid var(--line);
+    border-radius:8px;padding:8px 14px;font-size:12.5px;font-weight:600;cursor:pointer;transition:.16s;}
+  .io-btn:hover{border-color:var(--main);color:var(--main);background:var(--main-soft);}
+  .io-btn.alt{color:var(--ink);border-color:var(--line);}
+  .io-btn.alt:hover{background:var(--bg);}
+  .io-msg{font-size:12.5px;margin-top:8px;}
+  .io-msg.ok{color:var(--main);}
+  .io-msg.err{color:var(--alert);}
+  .io-diff{margin-top:2px;}   /* v23：导入预览独立容器——say()/sayTo() 的反馈只写 #ioMsg，不再抹掉待决策的预览与确认按钮 */
+  textarea.io-edit{display:none;width:100%;min-height:230px;margin-top:12px;
+    font:12px/1.5 ui-monospace,Menlo,Consolas,monospace;border:1px solid var(--line);
+    border-radius:8px;padding:12px;resize:vertical;background:var(--report-bg);color:var(--ink);}
+  textarea.io-edit.show{display:block;}
+  /* data panel（折叠降级） */
+  .data-card details{border:1px dashed var(--line);border-radius:10px;padding:12px 14px;background:var(--bg);}
+  .data-card summary{cursor:pointer;font-size:12.5px;font-weight:700;color:var(--ink);
+    list-style:none;letter-spacing:.5px;}
+  .data-card summary::before{content:"▸ ";}
+  .data-card details[open] summary::before{content:"▾ ";}
+  .data-card details[open] summary{margin-bottom:12px;}
+  /* detail panel：右侧常驻诊断抽屉（v13：长内容限高滚动，点击任何过滤后始终可见） */
+  .detail{position:sticky;top:16px;align-self:start;max-height:calc(100vh - 32px);overflow-y:auto;}
+  .detail h3{font-size:16px;color:var(--ink);margin-bottom:10px;font-weight:700;}
+  .detail h3::after{content:"";display:block;width:34px;height:2px;background:var(--main);margin-top:6px;}
+  .detail .row{margin:11px 0;font-size:13.5px;}
+  .detail .k{color:var(--muted);display:block;font-size:11.5px;margin-bottom:2px;}
+  .tag{display:inline-block;background:var(--bg);border:1px solid var(--line);
+    border-radius:6px;padding:2px 9px;font-size:11px;margin:2px 4px 2px 0;color:var(--ink);}
+  /* v19：边框改用主题变量——深色模式下不再挂浅色模式的亮灰描边 */
+  .tag.gov{background:var(--accent-soft);border-color:var(--line);color:var(--accent);}
+  .tag.mode{background:var(--main-soft);border-color:var(--line);color:var(--main);}
+  .empty{color:var(--muted);font-size:13px;}
+  .net-hint{font-size:12px;color:var(--main-d);margin-top:8px;display:none;}
+  .net-hint.show{display:block;}
+  /* 主题切换按钮 */
+  .theme-btn{position:absolute;top:18px;right:26px;z-index:3;background:var(--paper);
+    border:1px solid var(--line);color:var(--ink);border-radius:999px;padding:5px 14px;
+    font-size:12px;font-weight:600;cursor:pointer;transition:.16s;}
+  .theme-btn:hover{border-color:var(--main);color:var(--main);}
+  /* v13：巡览按钮 + 首访提示 */
+  .tour-btn{position:absolute;top:18px;right:calc(26px + 122px);z-index:3;background:var(--main);color:#fff;
+  border:none;border-radius:999px;padding:7px 16px;font-size:12.5px;font-weight:700;cursor:pointer;
+  box-shadow:0 2px 10px rgba(59,91,219,.35);}
+  .tour-btn:hover{filter:brightness(1.08);}
+  .tour-btn.on{background:var(--alert);}
+  .coach-tip{position:absolute;top:52px;right:calc(26px + 60px);z-index:4;background:var(--ink);color:#fff;
+  font-size:12px;padding:8px 34px 8px 14px;border-radius:10px;line-height:1.45;max-width:300px;
+  box-shadow:0 6px 24px rgba(0,0,0,.25);}
+  .coach-tip::after{content:"";position:absolute;top:-6px;right:70px;border:6px solid transparent;border-top:none;border-bottom-color:var(--ink);}
+  .coach-x{position:absolute;top:4px;right:8px;background:none;border:none;color:#fff;cursor:pointer;font-size:12px;opacity:.75;}
+  .coach-x:hover{opacity:1;}
+  .net-zoom-tools{display:inline-flex;gap:6px;align-items:center;}
+  .net-zb{min-width:34px;font-weight:700;padding:4px 10px!important;}
+  .net-zoom-hint{font-size:11.5px;color:var(--muted);}
+  /* v13：悬浮章节导航 */
+  .dock-nav{position:fixed;right:12px;top:50%;transform:translateY(-50%);z-index:50;display:flex;flex-direction:column;gap:4px;
+  opacity:0;pointer-events:none;transition:opacity .3s;}
+  .dock-nav.show{opacity:1;pointer-events:auto;}
+  .dock-nav button{background:var(--paper);border:1px solid var(--line);color:var(--muted);font-size:11px;
+  padding:6px 10px;border-radius:8px;cursor:pointer;writing-mode:vertical-rl;letter-spacing:2px;transition:all .2s;}
+  .dock-nav button:hover{color:var(--main);border-color:var(--main);transform:translateX(-3px);}
+  /* v13：快捷键帮助 */
+  .kbd-help{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:100;background:var(--paper);
+  border:1px solid var(--line);border-radius:14px;padding:22px 28px;width:min(440px,calc(100vw - 32px));   /* v16：窄屏不再被裁 */
+  max-height:calc(100vh - 48px);overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.3);
+  font-size:13.5px;color:var(--ink);}
+  .kbd-help h4{margin:0 0 12px;font-size:15px;}
+  .kbd-help ul{list-style:none;padding:0;margin:0 0 10px;}
+  .kbd-help li{margin:7px 0;display:flex;justify-content:space-between;gap:24px;}
+  .kbd-help kbd{background:var(--bg);border:1px solid var(--line);border-bottom-width:2px;border-radius:5px;padding:1px 8px;font-family:var(--serif);font-size:12px;}
+  /* v14：操作反馈 toast */
+  .say-toast{position:fixed;left:50%;top:14px;z-index:200;transform:translate(-50%,-14px);
+  opacity:0;transition:opacity .3s,transform .3s;pointer-events:none;max-width:80vw;
+  padding:8px 18px;border-radius:999px;font-size:13px;font-weight:600;color:#fff;
+  box-shadow:0 6px 24px rgba(0,0,0,.25);}
+  .say-toast.show{opacity:1;transform:translate(-50%,0);}
+  .say-toast.ok{background:var(--main);}
+  .say-toast.info{background:var(--muted);}   /* v16：中性引导，不占告警红 */
+  .say-toast.err{background:var(--alert);}
+  /* 时间轴「当前」进度标记 */
+  .tl-now{position:absolute;top:34px;bottom:2px;width:0;border-left:2px dashed var(--alert);
+    opacity:.85;z-index:1;pointer-events:none;}
+  .tl-now span{position:absolute;bottom:0;left:0;transform:translateX(-50%);font-size:10.5px;   /* v17：贴住虚线下端，不再掉到时间轴外的空档里 */
+    font-weight:700;color:var(--alert);background:var(--paper);padding:0 5px;border-radius:4px;
+    white-space:nowrap;}
+  .tl-now.tail span{transform:translateX(-100%);}
+  /* 主体快捷按钮（键盘 / 触屏直达网络节点） */
+  .qorgs{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px;}
+  .qorg{border:1px solid var(--line);background:var(--paper);color:var(--ink);
+    border-radius:999px;padding:4px 13px;font-size:12px;font-weight:600;cursor:pointer;transition:.15s;}
+  .qorg:hover{border-color:var(--main);background:var(--main-soft);}
+  .qorg[aria-current="true"]{background:var(--main);border-color:var(--main);color:#fff;}
+  /* 网络工具条 */
+  .net-tools{margin-top:10px;display:flex;flex-wrap:wrap;gap:10px;align-items:center;}
+  /* 风险速览 */
+  .risk-groups{display:grid;gap:14px;}
+  .rg-t{font-size:12px;color:var(--muted);margin-bottom:6px;letter-spacing:.4px;}
+  .risk-items{display:flex;flex-wrap:wrap;gap:8px;}
+  .risk-item{display:inline-flex;align-items:center;gap:7px;border:1px solid var(--line);
+    border-left:3px solid var(--alert);background:var(--paper);color:var(--ink);border-radius:9px;
+    padding:7px 12px;font-size:12.5px;font-weight:600;cursor:pointer;transition:.15s;}
+  .risk-item:hover{box-shadow:var(--shadow-sm);transform:translateY(-1px);border-color:var(--alert);}
+  .risk-item.ri-link{border-left-color:var(--main);}
+  .risk-item.ri-link:hover{border-color:var(--main);}
+  .risk-item.ri-org{border-left-color:var(--accent);}
+  .risk-item.ri-org:hover{border-color:var(--accent);}
+  .risk-item .rv{color:var(--alert);font-weight:800;flex:none;}
+  .risk-item.ri-link .rv{color:var(--main);}
+  .risk-item.ri-org .rv{color:var(--main);}
+  .risk-ok{font-size:12.5px;color:var(--main);}
+  button.tag{cursor:pointer;}
+  button.tag:hover{border-color:var(--main);background:var(--main-soft);}
+  :focus-visible{outline:3px solid var(--main);outline-offset:2px;border-radius:5px;}
+  /* v5：卡片渐入（仅 opacity，不动 transform 以免破坏 sticky） */
+  .card{animation:cardIn .45s ease both;}
+  @keyframes cardIn{from{opacity:0}to{opacity:1;}}
+  /* v5：卡点搜索 */
+  .blk-tools{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:12px;}
+  .blk-search{flex:1;min-width:180px;border:1px solid var(--line);border-radius:10px;
+    padding:8px 12px;font-size:13px;background:var(--paper);color:var(--ink);font-family:inherit;}
+  .blk-search::placeholder{color:var(--muted);}
+  .blk-count{font-size:12px;color:var(--muted);flex:none;}
+  .blk-empty{padding:14px 16px;border:1px dashed var(--line);border-radius:10px;color:var(--muted);font-size:13px;}
+  .qorg.match{box-shadow:0 0 0 2px var(--main);border-color:var(--main);}
+  /* v5：canvas hover 气泡 */
+  .net-wrap{position:relative;}
+  .net-tip{position:absolute;pointer-events:none;z-index:6;display:none;max-width:250px;
+    background:var(--paper);border:1px solid var(--line);border-radius:9px;
+    box-shadow:var(--shadow);padding:8px 12px;font-size:12px;color:var(--ink);}
+  .net-tip b{color:var(--main-d);font-size:12.5px;}
+  .net-tip .tv{color:var(--muted);}
+  .net-tip .th{font-weight:800;}
+  /* 场景对比 */
+  .cmp-card{display:none;}
+  .cmp-card.show{display:block;}
+  .cmp-head{display:flex;flex-wrap:wrap;align-items:baseline;gap:10px;margin-bottom:12px;font-size:14px;}
+  .cmp-head b{color:var(--main-d);}
+  .cmp-delta{font-weight:800;}
+  .cmp-delta.up{color:var(--main);}
+  .cmp-delta.down{color:var(--muted);}   /* v16：差值只表「对面更低」的事实，不染告警红 */
+  .cmp-delta.eq{color:var(--muted);}
+  .cmp-score{font-family:var(--serif);font-weight:700;color:var(--ink);}   /* v18：两个分数本体挂中性墨色，up/down 只给 Δ 段（自家分数不再替对面表态） */
+  .cmp-row{display:grid;grid-template-columns:96px 1fr 64px;gap:8px;align-items:center;font-size:12.5px;margin:7px 0;}
+  .cmp-bars{display:grid;gap:3px;}
+  .cmp-bar{height:8px;border-radius:99px;position:relative;background:var(--track);overflow:hidden;}
+  .cmp-bar i{position:absolute;left:0;top:0;bottom:0;border-radius:99px;width:0;transition:width .9s cubic-bezier(.2,.8,.3,1);}
+  .cmp-bar.b-cur i{background:var(--main);}
+  .cmp-bar.b-cmp i{background:transparent;border:1.5px solid var(--dim1);}   /* v15：真正的描边空心条，与提示文案一致 */
+  .cmp-names{display:flex;justify-content:space-between;font-size:11px;color:var(--muted);margin-bottom:4px;}
+  .cmp-orgs{font-size:12.5px;margin:10px 0;color:var(--muted);}
+  .cmp-orgs b{color:var(--ink);}
+  .cmp-actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:12px;}
+  /* 报告区 SVG 图 */
+  .report-chart{margin:6px 0 14px;}
+  .report-chart svg{width:100%;height:auto;display:block;}
+  /* 导入 diff 预览 */
+  .diff-box{margin-top:10px;border:1px solid var(--line);border-left:3px solid var(--main);
+    border-radius:10px;padding:10px 14px;background:var(--report-bg);font-size:12.5px;}
+  .diff-box b{color:var(--main-d);}
+  .diff-list{margin:6px 0 10px;color:var(--muted);}
+  .diff-acts{display:flex;gap:10px;flex-wrap:wrap;}
+  /* 对比模式下的场景按钮提示 */
+  .scene-row.cmp-pending .scene-btn{box-shadow:0 0 0 2px var(--accent) inset;}
+  .cmp-mode-lab{font-size:11.5px;color:var(--accent);font-weight:700;letter-spacing:.4px;}
+  footer{padding:6px 30px 36px;color:var(--muted);font-size:12px;}
+  @media(max-width:1080px){
+    .hero-card{grid-template-columns:1fr;gap:18px;}
+    .hero-right{grid-template-columns:200px 1fr;}
+    /* v23（轻）：641~1080px 雷达列被压成 200px，但 svg 固定 230px 溢出列轨约 30px、
+       穿过 20px 间距后压上五维列表左缘——跟进列宽缩到 200px（≤640px 档的 190px 接管更窄档） */
+    .radar-box svg{width:200px;}
+  }
+  @media(max-width:920px){
+    .wrap{grid-template-columns:1fr;}
+    .hero-right{grid-template-columns:200px 1fr;}
+    .detail{position:static;max-height:none;overflow:visible;}   /* v13：窄屏取消常驻抽屉 */
+  }
+  @media (prefers-reduced-motion:reduce){
+    .card{animation:none;}
+    .cmp-bar i{transition:none!important;}
+    /* v23（轻）：toast 的 translate(-50%,-14px)→0 与 #tourOv 的 translate(-50%,8px)→0 也是
+       位置性动效——与 v21 总分计数同纳入豁免清单，减少动态偏好下直接显形、不再滑动 */
+    .say-toast,#tourOv{transition:none!important;}
+  }
+  @media(max-width:640px){
+    header.masthead{padding:18px 16px 12px;}
+    header h1{font-size:20px;}
+    .wrap{padding:14px 12px;}
+    .card{padding:16px 14px;}
+    .hs-num{font-size:64px;}
+    .hero-right{grid-template-columns:1fr;}
+    .radar-box svg{width:190px;}
+    #net{height:380px;}
+    .tl{margin:22px 2px 4px;}
+    /* v22（中）：窄屏时间轴——标签框固定 100px / 日期串「2024-03 ~ 2024-09」约 105px，
+       六阶段时相邻节点间隔只有 60px 出头必然叠字；标签缩小可折行，日期只显示起始年月 */
+    .tl-label{width:64px;font-size:10.5px;line-height:1.3;white-space:normal;}
+    /* v23（中）：折行后标签两行约占到 95px，而密度点行钉在 top:90px 且 DOM 里后渲染叠在
+       文字上层——七字以上阶段名折两行时第二行正好撞进 90~94px 的蓝点带。窄屏档密度点
+       下移到 top:100px（.tl 高 124px 容得下），两行标签与密度点上下错开 */
+    .tl-dots{top:100px;}
+    .tl-date{font-size:10.5px;}
+    .tl-date .d-sep,.tl-date .d-to{display:none;}
+    .theme-btn{top:12px;right:14px;font-size:11.5px;padding:5px 11px;}
+    .report{padding:18px 16px;}
+  }
+  @media print{
+    .theme-btn,.tour-btn,.coach-tip,.scene-row,.report-actions,.data-card,.qorgs,.net-tools,.blk-tools,.net-hint,.cmp-actions,.diff-box,.dock-nav,.kbd-help,.say-toast,footer,.masthead .meta{display:none!important;}
+    /* v20：补巡览字幕条（#tourOv，fixed）与脉冲环（style 内联 animation:tourRing）——
+       巡览中按 Ctrl+P 会把黑底白字字幕条印进报告纸 */
+    #tourOv,[style*="tourRing"]{display:none!important;}
+    /* v21（严重）：深色模式下打印 = 白纸 + 近白文字（--ink:#e6eaf2），而浏览器默认不勾「背景图形」
+       时不输出任何背景色——总分 / 五维图 / 七节正文 / 签发条几乎全部印不出来。打印件强制把
+       深色变量切回浅色档，不再依赖用户当时开的是什么主题；雷达图 / 报告五维图为生成时按
+       PAL() 取色的 SVG，按深色→浅色等价值映回（CSS fill/stroke 覆盖呈现属性，不必重渲染） */
+    [data-theme="dark"]{--bg:#f4f6f9;--paper:#ffffff;--ink:#182230;--muted:#5b6b80;
+      --line:#dce2ea;--track:#e7ebf0;
+      --main:#3b5bdb;--main-d:#2f46b0;--main-soft:#edf0fd;
+      --accent:#7c3aed;--accent-soft:#f1ecfd;
+      --alert:#dc2626;--alert-soft:#fdecec;--warn:#d97706;--warn-soft:#fdf1e3;
+      --calm:#475569;--calm-soft:#eef1f5;
+      --band-good:#059669;--band-mid:#3b5bdb;--band-bad:#dc2626;
+      --dim0:#3b5bdb;--dim1:#0891b2;--dim2:#7c3aed;--dim3:#059669;--dim4:#db2777;
+      --report-bg:#ffffff;--net-bg1:#ffffff;--net-bg2:#f2f5f9;}
+    .radar-box [fill="#e6eaf2"],.report-chart [fill="#e6eaf2"]{fill:#182230;}
+    .radar-box [fill="#8a96ab"]{fill:#5b6b80;}
+    .radar-box [fill="#34d39928"]{fill:#05966928;}
+    .radar-box [fill="#34d399"],.report-chart [fill="#34d399"]{fill:#059669;}
+    .radar-box [fill="#f0524a"],.report-chart [fill="#f0524a"]{fill:#dc2626;}
+    .report-chart [fill="#818cf8"]{fill:#3b5bdb;}
+    .radar-box [stroke="#1e2740"]{stroke:#e7ebf0;}
+    .report-chart [fill="#1e2740"]{fill:#e7ebf0;}
+    /* v22（轻）：维度签名色是渲染时按当前主题写死的内联色（dimColorOf），深色档为配深底的浅亮值——
+       与上面 SVG 映色同一思路，按 data-di 把 dim-row --band-color 与 dim-chip color 映回浅色等价值，
+       深色打印时五维分数 / 卡点角标不再淡得看不清 */
+    [data-theme="dark"] .dim-row[data-di="0"]{--band-color:#3b5bdb!important;}
+    [data-theme="dark"] .dim-row[data-di="1"]{--band-color:#0891b2!important;}
+    [data-theme="dark"] .dim-row[data-di="2"]{--band-color:#7c3aed!important;}
+    [data-theme="dark"] .dim-row[data-di="3"]{--band-color:#059669!important;}
+    [data-theme="dark"] .dim-row[data-di="4"]{--band-color:#db2777!important;}
+    [data-theme="dark"] .dim-chip[data-di="0"]{color:#3b5bdb!important;}
+    [data-theme="dark"] .dim-chip[data-di="1"]{color:#0891b2!important;}
+    [data-theme="dark"] .dim-chip[data-di="2"]{color:#7c3aed!important;}
+    [data-theme="dark"] .dim-chip[data-di="3"]{color:#059669!important;}
+    [data-theme="dark"] .dim-chip[data-di="4"]{color:#db2777!important;}
+    /* v23（轻）：图例色点是渲染时按当前主题写死的内联 background（buildLegend），深色档为
+       #34d399 / #818cf8 / #f0524a 这类配深底的亮值——变量覆盖管不到内联色，白纸上淡得看不清。
+       与上面 SVG 映色 / 维度签名色同一思路，把 .legend 内联色点映回浅色等价值（三大打印
+       交付物里图例是唯一漏网的深色取色构件） */
+    .legend .dot[style*="#34d399"]{background:#059669!important;}
+    .legend .dot[style*="#818cf8"]{background:#3b5bdb!important;}
+    .legend .dot[style*="#f0524a"]{background:#dc2626!important;}
+    /* v24（中）：反相徽章（重点干预组徽 .tn 与高风险 .sev，白字红底）——默认打印不勾「背景图形」
+       时红底不输出，白字落白纸连同徽章一起隐身；print-color-adjust:exact 强制浏览器按设计色打印 */
+    .triage.t-hi .tn,.sev.高{-webkit-print-color-adjust:exact;print-color-adjust:exact;}
+    header.masthead{padding:0 0 12px;border-bottom:2px solid #000;}
+    .mh-double{display:none;}
+    .wrap{display:block;max-width:none;padding:0;}
+    .card{box-shadow:none;border:none;break-inside:avoid;}
+    .detail{position:static;display:none;}
+    .report{display:block!important;}
+    .blk .more{display:block!important;}
+    .blk.dim-fade{opacity:1!important;}
+    /* v12：打印排版 —— 分页与避孤 */
+    .report p{break-inside:avoid;}
+    .report-chart,.cmp-card{break-inside:avoid;}
+    .card h2,.card h3{break-after:avoid;}
+    .triage{break-inside:avoid;}
+    @page{margin:14mm 12mm;}
+  }
+</style>
+</head>
+<body>
+<header class="masthead">
+  <div class="mh-top">
+    <div class="mh-left">
+      <div class="mh-kicker">ATRIA · DAWN 协同诊断中心</div>
+      <h1>协同体检中心</h1>
+      <div class="mh-sub">代建制公共工程 · 跨组织协同健康度诊断报告单</div>
+    </div>
+    <div class="mh-right">
+      <div class="mh-no">报告编号 <b id="reportNo">—</b></div>
+      <div class="mh-date" id="reportDate"></div>
+    </div>
+    <button class="theme-btn" id="themeBtn" type="button" aria-pressed="false" aria-label="切换深色 / 浅色模式">🌙 深色模式</button>
+    <button class="tour-btn" id="tourBtn" type="button" aria-label="播放约 90 秒自动巡览演示，任意点击可中途退出">▶ 巡览演示</button>
+    <div class="coach-tip" id="coachTip" hidden>首次到访？点击「▶ 巡览演示」播放约 90 秒自动导览
+      <button class="coach-x" id="coachX" type="button" aria-label="关闭提示">✕</button></div>
+  </div>
+  <div class="mh-double"></div>
+  <div class="meta" id="metaChips">
+    <span class="chip">示例项目：临江市第一人民医院新院区（一期）</span>
+    <span class="chip">建设模式：代建制 + EPC</span>
+    <span class="chip">体检日期：2026-06</span>
+  </div>
+  <div class="scene-row" id="sceneRow">
+    <span class="scene-lab">场景预设 · 一键切换（切换数据即切换项目）：</span>
+    <span class="scene-btns" id="sceneBtnsWrap"></span>
+    <button class="scene-btn" id="cmpBtn" type="button" aria-pressed="false"
+      title="选择另一个场景，与当前场景并排对比五维评分与主体健康度">⚖ 对比模式</button>
+    <span class="cmp-mode-lab" id="cmpLab" style="display:none">点击任一场景作为对比对象</span>
+  </div>
+</header>
+
+<div class="wrap">
+  <div>
+    <!-- 体检总览（英雄区） -->
+    <div class="card hero-card" id="cardHero">
+      <div class="hero-left">
+        <div class="hero-cap"><span class="no">一</span> · 协同体检总览</div>
+        <div class="hero-score">
+          <span class="hs-num" id="scoreV">0</span><span class="hs-unit">分</span>
+        </div>
+        <div class="hero-grade-row">
+          <div class="seal" id="gradeSeal">良<b>B</b></div>
+          <div class="grade-note" id="gradeNote">协同健康度 · 良</div>
+          <span class="delta-chip" id="deltaChip" hidden></span>
+        </div>
+        <div class="hero-concl" id="heroConcl"></div>
+        <div class="hero-foot" style="font-size:11px;color:var(--muted);margin-top:4px">总分为综合评值（含定性判断），非五维简单均值；评级由总分映射</div>
+      </div>
+      <div class="hero-right">
+        <div class="radar-box" id="radarBox"></div>
+        <div class="dim-list" id="dims" role="group" aria-label="五维评分列表，点击维度过滤关联卡点"></div>
+      </div>
+    </div>
+
+    <!-- 场景对比（v4） -->
+    <div class="card cmp-card" id="cmpCard">
+      <h2><span class="no">二</span> · 场景对比（⚖）</h2>
+      <div class="hint">当前场景与对比场景的五维评分 / 总分 / 主体健康度差异；描边浅色条为对比场景</div>
+      <div id="cmpBody"></div>
+    </div>
+
+    <!-- 风险速览 -->
+    <div class="card" id="cardRisks">
+      <h2><span class="no">三</span> · 风险速览（!） · 一键定位</h2>
+      <div class="hint">自动汇总当前数据中的高风险卡点、最薄弱关系与健康度偏低主体，点击任意条目直达详情</div>
+      <div class="risk-groups" id="risks"></div>
+    </div>
+
+    <!-- 时间轴 -->
+    <div class="card" id="cardTimeline">
+      <h2><span class="no">四</span> · 协同时间轴 · 阶段联动</h2>
+      <div class="hint">点击阶段节点，右侧网络中高亮该阶段参与主体，并在详情面板给出阶段诊断；再次点击取消过滤</div>
+      <div class="tl" id="tl"><div class="tl-track"></div><div class="tl-fill" id="tlFill" style="width:88%"></div><div class="tl-now" id="tlNow" style="left:88%"><span>当前 88%</span></div></div>
+    </div>
+
+    <!-- 关系网络 -->
+    <div class="card" id="cardNet">
+      <h2><span class="no">五</span> · 跨组织协同关系网络</h2>
+      <div class="hint">节点可拖拽（支持触摸） · 点击主体或关系看诊断 · 点击时间轴阶段或下方卡点可过滤高亮</div>
+      <div class="net-wrap">
+        <canvas id="net" aria-label="跨组织协同关系网络画布（聚焦后可用方向键移动焦点、Enter 查看主体）" tabindex="0"></canvas>
+        <div class="net-tip" id="netTip" role="status" aria-hidden="true"></div>
+      </div>
+      <div class="legend" id="legend"></div>
+      <div class="qorgs" id="qorgs" role="group" aria-label="主体快捷选择（键盘可用）"></div>
+      <div class="net-tools">
+        <button class="io-btn alt" id="pngBtn" type="button">导出关系图 PNG</button>
+        <span class="net-zoom-tools" role="group" aria-label="画布缩放">
+          <button class="io-btn alt net-zb" id="zoomOut" type="button" title="缩小（键盘 −）" aria-label="缩小">−</button>
+          <button class="io-btn alt net-zb" id="zoomReset" type="button" title="复位视图（键盘 0）" aria-label="复位视图">⟲</button>
+          <button class="io-btn alt net-zb" id="zoomIn" type="button" title="放大（键盘 +）" aria-label="放大">＋</button>
+        </span>
+        <span class="net-zoom-hint">滚轮缩放 · 拖拽空白处平移 · 0 键复位</span>
+      </div>
+      <div class="net-hint" id="netHint" aria-live="polite"></div>
+    </div>
+
+    <!-- 卡点（v7：按风险分诊，可按维度归因过滤） -->
+    <div class="card" id="cardBlocks">
+      <h2><span class="no">六</span> · 卡点分诊 · 诊断明细</h2>
+      <div class="hint">按风险分诊为「重点干预 / 观察跟进 / 常规优化」三组 · 卡点右上角为归因维度（点击按维度过滤）· 点击卡片展开证据与处方，并联动高亮网络中的涉及主体</div>
+      <div class="blk-tools">
+        <input class="blk-search" id="blkSearch" type="search" placeholder="搜索卡点：标题 / 表现 / 证据 / 处方 / 主体名…" aria-label="搜索卡点" />
+        <span class="blk-count" id="blkCount"></span>
+      </div>
+      <div id="blks"></div>
+    </div>
+
+    <!-- 复盘报告 -->
+    <div class="card" id="cardReport">
+      <h2><span class="no">七</span> · 一键生成协同复盘报告</h2>
+      <div class="hint">由 Atria-Dawn 自动把上述诊断结果整理成可直接交付的复盘报告；可下载 Markdown 或复制</div>
+      <div class="report-actions">
+        <button class="gen-btn" id="genBtn">生成复盘报告</button>
+        <button class="dl-btn" id="skipBtn" style="display:none" title="立即显示完整报告">跳过动画 ⏭</button>
+        <button class="dl-btn" id="dlBtn" style="display:none">下载 Markdown</button>
+        <button class="dl-btn" id="cpBtn" style="display:none">复制全文</button>
+      </div>
+      <div class="report" id="report"></div>
+    </div>
+  </div>
+
+  <!-- 详情面板 -->
+  <div class="card detail" id="detail" aria-live="polite">
+    <h3>诊断详情</h3>
+    <div class="empty">点击总览五维、时间轴阶段、网络中的主体或关系、或下方卡点，在此查看结构化诊断。</div>
+  </div>
+</div>
+
+<!-- v13：悬浮章节导航 -->
+<nav class="dock-nav" id="dockNav" aria-label="章节快速导航"></nav>
+<!-- v15：操作反馈 toast —— 与 kbdHelp 同级（不能放进带 hidden/transform 的弹层里） -->
+<div class="say-toast" id="sayToast" role="status" aria-live="polite"></div>
+<!-- v13：快捷键帮助 -->
+<div class="kbd-help" id="kbdHelp" hidden role="dialog" aria-label="快捷键说明">
+  <h4>快捷键</h4>
+  <ul>
+    <li><span>聚焦卡点搜索</span><kbd>/</kbd></li>
+    <li><span>卡点间移动 / 展开</span><kbd>↑ ↓</kbd> <kbd>Enter</kbd></li>
+    <li><span>网络节点聚焦移动（先点击 / Tab 聚焦画布）</span><kbd>← → ↑ ↓</kbd> <kbd>Enter</kbd></li>   <!-- v23（轻）：方向键只挂在 canvas keydown 上，注明生效前提，照帮助操作不再落空 -->
+    <li><span>画布缩放 / 复位（先点击 / Tab 聚焦画布）</span><kbd>+</kbd> <kbd>−</kbd> <kbd>0</kbd></li>   <!-- v24（轻）：与方向键同组，+/−/0 同样只挂在 canvas keydown 上，注明生效前提，照帮助操作不再落空 -->
+    <li><span>清空选中 / 关闭弹层 / 退出巡览</span><kbd>Esc</kbd></li>
+    <li><span>显示 / 隐藏本帮助</span><kbd>?</kbd></li>
+  </ul>
+  <small style="color:var(--muted)">按 ? 或 Esc 关闭</small>
+</div>
+
+<footer>
+  单文件 HTML · 离线运行 · 无外部依赖 ｜ 本页为示例数据演示，真实使用时由 Atria-Dawn 解析脱敏案卷自动生成。
+</footer>
+
+<script>
+"use strict";
+/* ================= 工具 ================= */
+const detail=document.getElementById("detail");
+const $=id=>document.getElementById(id);
+function esc(s){
+  return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;")
+    .replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;");
+}
+function gradeOf(v){return v>=85?"优（A）":v>=70?"良（B）":v>=60?"中（C）":"差（D）";}
+/* v18：正文 / Markdown / 对比栏用无括号的「良 B」形式（印章保留「良 / B」拆分），外层不再多包一层括号 */
+function gradePlain(v){const m=/^(.+?)（(.)）$/.exec(gradeOf(v));return m?m[1]+" "+m[2]:gradeOf(v);}
+/* v3：主题、持久化、无障碍动效 */
+const KEY_THEME="atria_demo_theme", KEY_SCENE="atria_demo_scene";
+const prefersReduced=!!(window.matchMedia&&window.matchMedia("(prefers-reduced-motion: reduce)").matches);
+function isDark(){return document.documentElement.getAttribute("data-theme")==="dark";}
+function smoothScroll(el,block){el.scrollIntoView({behavior:prefersReduced?"auto":"smooth",block:block||"nearest"});}
+
+/* ================= 数据（示例 · 虚构；可经「导入 JSON」整体替换） ================= */
+const DEFAULT_DATA={
+  meta:{
+    project:"示例项目：临江市第一人民医院新院区（一期）",
+    mode:"建设模式：代建制 + EPC",
+    date:"体检日期：2026-06",
+    badge:"示例数据 · 虚构项目，仅作演示",
+    progress:88
+  },
+  total:72,
+  orgs:[
+    {id:"agent", name:"代建单位", short:"代建办", type:"core", health:74,
+     role:"代建方 · 项目统筹", power:"全过程组织、协调、报批、投资控制",
+     act:"并联推进各主体、每周例会协调、月报报送", block:"权责边界模糊、协调成本高",
+     tags:["代建制","项目统筹"], phases:[0,1,2,3,4,5]},
+    {id:"owner", name:"业主单位(卫健委)", short:"卫健委", type:"gov", health:70,
+     role:"项目业主", power:"投资决策、需求确认、监督考核",
+     act:"需求提报、验收确认、资金拨付", block:"需求变更频繁、与代建目标错位",
+     tags:["代建制","业主"], phases:[0,2,4,5]},
+    {id:"hosp", name:"使用单位(院方)", short:"院方筹备组", type:"part", health:63,
+     role:"使用单位", power:"使用需求、功能确认",
+     act:"功能需求提报、医疗专项对接", block:"使用需求后置导致设计与施工返工",
+     tags:["使用单位","医疗专项"], phases:[1,3,4,5]},
+    {id:"gov", name:"政府审批部门", short:"审批部门", type:"gov", health:66,
+     role:"发改 / 住建 / 财政 / 自然资源", power:"审批、资金、土地",
+     act:"并联审批、图审、资金监管", block:"跨部门时序依赖、前置件等待",
+     tags:["审批监管"], phases:[0,1,2,4]},
+    {id:"design",name:"设计单位", short:"设计院", type:"part", health:77,
+     role:"勘察设计", power:"设计质量与进度",
+     act:"图纸交付、设计变更、专项设计", block:"医疗专项设计与施工界面不清",
+     tags:["勘察设计"], phases:[1,3,4]},
+    {id:"epc", name:"EPC 总承包", short:"EPC", type:"part", health:71,
+     role:"施工总承包", power:"工期、造价、安全、质量",
+     act:"现场实施、分包管理、进度汇报", block:"工期压力下的分包协同",
+     tags:["EPC","施工总承包"], phases:[2,3,4]},
+    {id:"super",name:"监理单位", short:"监理", type:"part", health:80,
+     role:"工程监理", power:"质量、进度、安全监督",
+     act:"旁站、验收签认、监理例会", block:"独立性与权责保障",
+     tags:["监理"], phases:[3,4]},
+    {id:"audit",name:"审计/纪检监督", short:"审计监督", type:"gov", health:85,
+     role:"审计 / 纪检", power:"合规、绩效监督",
+     act:"过程监督、专项审计、结算审计", block:"监督时点与效力",
+     tags:["审计监督","合规"], phases:[3,4,5]}
+  ],
+  links:[
+    ["agent","owner","报批/需求",72],["agent","hosp","需求对接",58],
+    ["agent","gov","审批推进",64],["agent","design","设计协同",76],
+    ["agent","epc","施工统筹",73],["agent","super","监理协同",82],
+    ["agent","audit","监督报送",84],["owner","hosp","需求传递",55],
+    ["owner","gov","立项/资金",70],["epc","design","施工图衔接",61],
+    ["epc","super","验收签认",79],["design","gov","图审",60]
+  ],
+  phases:[
+    {label:"前期立项", date:"2022-09", diag:"立项阶段协同整体顺畅，但使用单位介入较晚，需求表述粗放，为后期变更埋下隐患。"},
+    {label:"勘察设计", date:"2023-02", diag:"医疗专项设计启动滞后于主体设计，净化、放疗等专项界面未在设计阶段闭合。"},
+    {label:"招标采购", date:"2023-06", diag:"EPC 招标与专项采购界面划分不够清晰，合同条款对跨组织界面约定留白。"},
+    {label:"施工实施", date:"2023-09", diag:"协同最繁重阶段：图纸衔接、需求变更、审批滞后三重压力叠加，例会机制发挥关键作用。"},
+    {label:"竣工验收", date:"2026-03", diag:"专项验收与总体验收时序咬合紧密，资料归集口径不一拖累验收进度。"},
+    {label:"移交使用", date:"2026-06", diag:"院方功能确认与代建移交组织有序，需求锁定机制在收尾阶段见效。"}
+  ],
+  blockers:[
+    {t:"权责边界模糊", sev:"中", d:"代建与业主、使用单位之间权责交叉或留白",
+     ev:"例会纪要中累计 12 次议题涉及“谁牵头”的职责争议（示例数据）",
+     fix:"编制权责清单 + 协同流程图，在项目启动阶段前置确认并签认", orgs:["agent","owner","hosp"]},
+    {t:"信息不对称", sev:"高", d:"现场进度与投资台账口径不一，数据割裂",
+     ev:"周报与投资月报在形象进度上存在 3 个百分点的口径偏差（示例数据）",
+     fix:"统一数据底座与报表口径，例会固定通报关键指标", orgs:["agent","epc","owner"]},
+    {t:"时序依赖", sev:"高", d:"跨部门审批串联，前置件未出则后续停摆",
+     ev:"图审滞后约 20 天，间接推迟开工准备（示例数据）",
+     fix:"并联审批 + 容缺受理，关键审批事项设置预警机制", orgs:["gov","agent","design"]},
+    {t:"目标错位", sev:"中", d:"工期 / 质量 / 成本三角下各主体优先级冲突",
+     ev:"赶工要求与净化工程养护周期的冲突在第三季度集中显现（示例数据）",
+     fix:"建立目标对齐机制，将协同指标纳入各主体考核", orgs:["owner","agent","epc"]},
+    {t:"医疗专项协同", sev:"高", d:"净化、放疗等专项设计与施工、采购交叉",
+     ev:"专项界面不清导致局部返工，涉及走廊与机房衔接区域（示例数据）",
+     fix:"专项设计前置，编制界面清单并设界面责任人", orgs:["design","epc","hosp"]},
+    {t:"需求变更", sev:"中", d:"使用需求后置或反复调整，引发返工",
+     ev:"施工阶段院方提出功能调整，涉及科室布局优化（示例数据）",
+     fix:"设计阶段锁定需求清单，变更走评审流程并评估影响", orgs:["hosp","agent","design"]}
+  ],
+  dims:[
+    {n:"权责清晰度",v:68},{n:"信息通畅度",v:75},{n:"审批效率",v:61},
+    {n:"目标一致性",v:78},{n:"需求稳定性",v:58}
+  ],
+  prev:{date:"2025-12",total:67,dims:[66,71,57,80,55],
+    orgs:{agent:71,owner:68,hosp:60,gov:63,design:74,epc:67,super:78,audit:85}}
+};
+
+/* 场景预设：切换数据即切换项目（均为虚构示例） */
+const SCENARIOS=[
+{
+  meta:{project:"示例项目：临江市轨道交通4号线",mode:"建设模式：代建制 + 施工总承包",
+    date:"体检日期：2026-05",badge:"示例数据 · 虚构项目，仅作演示",progress:42},
+  total:69,
+  orgs:[
+    {id:"owner", name:"业主单位（市轨道集团）", short:"轨道集团", type:"gov", health:71,
+     role:"项目业主", power:"投资决策、开通时点把控",
+     act:"需求确认、里程碑考核、接口协调", block:"征地拆迁与管线迁改协调难度大",
+     tags:["业主","市属国企"], phases:[0,1,2,3,4,5]},
+    {id:"agent", name:"代建单位（城建代建中心）", short:"代建中心", type:"core", health:73,
+     role:"代建方 · 项目统筹", power:"全过程组织、协调、报建",
+     act:"总控计划、接口协调、例会督办", block:"多权属单位协调链路长",
+     tags:["代建制"], phases:[0,1,2,3,4,5]},
+    {id:"design", name:"设计总体院", short:"总体院", type:"part", health:66,
+     role:"勘察设计", power:"设计质量与进度",
+     act:"出图、工点接口、动态设计", block:"工点 interface 多，变更集中",
+     tags:["勘察设计"], phases:[0,1,2,3]},
+    {id:"build", name:"施工总承包（盾构分公司）", short:"总承包", type:"part", health:62,
+     role:"施工", power:"履约资源投入",
+     act:"盾构掘进、监测、应急演练", block:"下穿既有线沉降控制压力",
+     tags:["施工"], phases:[2,3,4]},
+    {id:"supervise", name:"监理单位", short:"监理", type:"part", health:76,
+     role:"监理", power:"质量 / 安全监督",
+     act:"旁站、巡检、验收把关", block:"夜间施工监管人手不足",
+     tags:["监理"], phases:[1,2,3,4]},
+    {id:"gov", name:"政府审批部门", short:"审批部门", type:"gov", health:64,
+     role:"发改 / 住建 / 交通 / 管线权属", power:"审批、占道许可、管线协调",
+     act:"并联审批、占道许可、管线迁改统筹", block:"占道许可与管线迁改串联",
+     tags:["审批监管"], phases:[0,1,2]},
+    {id:"depot", name:"车辆基地与运维单位", short:"运维基地", type:"part", health:68,
+     role:"运维", power:"接管标准与运维需求",
+     act:"接口确认、运维需求前置", block:"运维需求后置导致接口新增",
+     tags:["运维"], phases:[3,4,5]},
+    {id:"public", name:"交警与管线权属单位", short:"管线/交警", type:"gov", health:58,
+     role:"外部条件", power:"占道许可、迁改时序",
+     act:"报装对接、错峰迁改", block:"报装时序与始发节点冲突",
+     tags:["外部条件"], phases:[2,3,4]}
+  ],
+  links:[
+    ["owner","agent","统筹考核",82],
+    ["owner","design","设计管理",74],
+    ["owner","build","施工监管",70],
+    ["agent","design","设计进度",78],
+    ["agent","build","施工组织",76],
+    ["agent","supervise","监理协同",80],
+    ["build","supervise","质量安全",72],
+    ["design","build","图纸交底",63],
+    ["owner","depot","运维对接",61],
+    ["build","depot","接口移交",58],
+    ["agent","public","管线/占道",55],
+    ["owner","gov","审批推进",60]
+  ],
+  phases:[
+    {label:"规划立项",date:"2024-03 ~ 2024-09",diag:"线位与建设模式论证完成，代建单位提前介入；审批串联偏长"},
+    {label:"勘察设计",date:"2024-10 ~ 2025-06",diag:"总体院出图总体受控，工点接口多、变更集中"},
+    {label:"拆迁与管线迁改",date:"2025-07 ~ 2026-02",diag:"占用关键工期，管线权属协调链路长，交警占道审批为卡点"},
+    {label:"土建施工（盾构）",date:"2026-03 ~ 2027-08",diag:"盾构下穿既有线风险高，监测与例会机制运行良好"},
+    {label:"机电与轨道",date:"2027-09 ~ 2028-05",diag:"设备招采与土建界面需提前锁定，运维需求应前置确认"},
+    {label:"通车试运行",date:"2028-06 ~ 2028-12",diag:"验收与开通时点受制于前序接口，需倒排计划"}
+  ],
+  blockers:[
+    {t:"管线迁改协调",sev:"高",d:"给水 / 燃气 / 电力权属单位各自报装，时序与盾构始发冲突",
+     ev:"某区间燃气迁改滞后约 35 天，压缩盾构始发窗口（示例数据）",
+     fix:"建管线综合协调专班，权属单位并联报装、占比错峰",orgs:["public","owner","agent"]},
+    {t:"盾构下穿既有线",sev:"高",d:"下穿运营中 2 号线，沉降控制要求严",
+     ev:"自动化监测日报与应急预案演练已覆盖全部区间（示例数据）",
+     fix:"自动化监测日报 + 预警阈值联动的应急体系",orgs:["build","supervise","design"]},
+    {t:"征拆滞后",sev:"中",d:"局部站点征拆影响交通疏解方案落地",
+     ev:"两处站点交通疏解方案调整 3 轮（示例数据）",
+     fix:"征拆清单与疏解方案同步编排、前置公示",orgs:["owner","gov","agent"]},
+    {t:"设计变更集中",sev:"中",d:"工点接口多，变更闭环周期偏长",
+     ev:"季内变更单平均闭环 18 天（示例数据）",
+     fix:"变更分级评审 + 线上闭环时限",orgs:["design","agent","owner"]},
+    {t:"交警占道审批",sev:"低",d:"夜间占道许可证发放周期不稳定",
+     ev:"夜间施工窗口获批率约 80%（示例数据）",
+     fix:"审批前置沟通 + 月度占道计划报送",orgs:["public","gov"]},
+    {t:"运维需求后置",sev:"中",d:"车辆基地与正线接口需求在施工后期才明确",
+     ev:"接口清单在机电阶段新增 12 项（示例数据）",
+     fix:"运维单位在设计阶段提前介入，接口清单冻结管理",orgs:["depot","design","owner"]}
+  ],
+  dims:[
+    {n:"权责清晰度",v:71},{n:"信息通畅度",v:72},{n:"审批效率",v:58},
+    {n:"目标一致性",v:76},{n:"需求稳定性",v:60}
+  ],
+  prev:{date:"2025-11",total:73,dims:[68,73,52,70,56],
+    orgs:{owner:69,agent:74,gov:59,build:66,supervise:77,depot:58,public:64,design:68}}
+},
+{
+  meta:{project:"示例项目：临江市老城区排水管网改造",mode:"建设模式：代建制 + EPC",
+    date:"体检日期：2026-07",badge:"示例数据 · 虚构项目，仅作演示",progress:35},
+  total:63,
+  orgs:[
+    {id:"owner", name:"业主单位（区水务局）", short:"区水务局", type:"gov", health:66,
+     role:"项目业主", power:"投资决策、接管标准",
+     act:"需求确认、接管标准对齐", block:"移交接管标准口径不一",
+     tags:["业主"], phases:[0,1,2,3,4]},
+    {id:"agent", name:"代建单位", short:"代建办", type:"core", health:70,
+     role:"代建方 · 项目统筹", power:"全过程组织、协调、报建",
+     act:"总控计划、占道协调、例会督办", block:"街道与商户协调链路长",
+     tags:["代建制"], phases:[0,1,2,3,4]},
+    {id:"epc", name:"EPC 总承包", short:"EPC 总包", type:"part", health:59,
+     role:"设计施工一体化", power:"资源投入与进度",
+     act:"分段施工、动态配合设计", block:"地下水高、老管线不明段风险集中",
+     tags:["EPC"], phases:[1,2,3,4]},
+    {id:"design", name:"设计单位", short:"设计院", type:"part", health:68,
+     role:"勘察设计", power:"设计方案",
+     act:"物探复核、动态设计", block:"既有管网资料缺失",
+     tags:["勘察设计"], phases:[0,1]},
+    {id:"supervise", name:"监理单位", short:"监理", type:"part", health:74,
+     role:"监理", power:"质量 / 安全监督",
+     act:"旁站、巡检、验收把关", block:"夜间与雨季施工监管强度大",
+     tags:["监理"], phases:[2,3,4]},
+    {id:"community", name:"街道与社区", short:"街道/社区", type:"part", health:61,
+     role:"属地协调", power:"居民与商户协调",
+     act:"施工告知、诉求响应、公示", block:"投诉响应需要更快闭环",
+     tags:["属地协调"], phases:[2,3]},
+    {id:"gov", name:"政府审批部门", short:"审批部门", type:"gov", health:63,
+     role:"住建 / 交警 / 水务", power:"审批、占道许可",
+     act:"占道许可、分段验收备案", block:"占道许可发放周期不稳定",
+     tags:["审批监管"], phases:[0,1,2]}
+  ],
+  links:[
+    ["owner","agent","代建委托",81],
+    ["owner","epc","EPC 总包管理",67],
+    ["agent","epc","进度协调",69],
+    ["agent","design","设计管理",77],
+    ["epc","design","设计施工融合",71],
+    ["agent","supervise","监理协同",79],
+    ["epc","supervise","质量安全",62],
+    ["agent","community","居民协调",64],
+    ["owner","gov","审批推进",58],
+    ["epc","community","施工告知",57]
+  ],
+  phases:[
+    {label:"方案立项",date:"2025-09 ~ 2025-12",diag:"雨污分流方案论证完成，EPC 招采落地；前期物探深度不足"},
+    {label:"施工图设计",date:"2026-01 ~ 2026-03",diag:"物探盲区采用动态设计，设计施工一体化优势显现"},
+    {label:"交通疏解与占道",date:"2026-04 ~ 2026-08",diag:"分段占道审批与居民告知是关键路径，需街道联动"},
+    {label:"分段施工",date:"2026-09 ~ 2027-06",diag:"顶管与开槽交替，地下水高、老管线不明段风险集中"},
+    {label:"竣工验收与移交",date:"2027-07 ~ 2027-10",diag:"移交标准需与水务局及养护单位提前对齐"}
+  ],
+  blockers:[
+    {t:"占道与交通疏解",sev:"高",d:"老城区道路资源紧张，分段占道审批与居民出行矛盾突出",
+     ev:"高峰期投诉单月 46 起，疏解方案调整 4 轮（示例数据）",
+     fix:"分段错峰 + 街道前置公示，设立 24 小时响应群",orgs:["community","gov","epc"]},
+    {t:"老管网资料缺失",sev:"中",d:"既有管网竣工资料不全，物探盲区导致设计变更",
+     ev:"物探补测新增管线 27 处（示例数据）",
+     fix:"动态设计 + 挖探复核，资料沉淀为管网一张图",orgs:["design","epc","owner"]},
+    {t:"地下水高与管线不明",sev:"高",d:"顶管段遇流砂与不明管线，存在安全和返工风险",
+     ev:"顶管段平均进度低于计划 22%（示例数据）",
+     fix:"超前地质预报 + 管线探测先行，专项方案评审",orgs:["epc","supervise","design"]},
+    {t:"居民协调",sev:"中",d:"施工噪音、停水告知与商户经营诉求需快速响应",
+     ev:"停水告知提前 24 小时落实率约 90%（示例数据）",
+     fix:"社区共建联络员机制，施工告知标准化",orgs:["community","agent"]},
+    {t:"移交接管标准",sev:"低",d:"竣工资料与养护标准口径不一致，移交周期长",
+     ev:"首批段移交比计划晚 20 天（示例数据）",
+     fix:"建设期即按养护标准建档，分批验收移交",orgs:["owner","epc","supervise"]}
+  ],
+  dims:[
+    {n:"权责清晰度",v:64},{n:"信息通畅度",v:70},{n:"审批效率",v:55},
+    {n:"目标一致性",v:72},{n:"需求稳定性",v:51}
+  ],
+  prev:{date:"2025-10",total:66,dims:[67,68,52,70,57],
+    orgs:{owner:62,agent:66,epc:55,design:64,supervise:72,community:66,gov:60}}
+},
+{
+  meta:{project:"示例项目：临江市第九九年制学校",mode:"建设模式：代建制 + 施工总承包",
+    date:"体检日期：2026-04",badge:"示例数据 · 虚构项目，仅作演示",progress:61},
+  total:70,
+  orgs:[
+    {id:"agent", name:"代建单位", short:"代建办", type:"core", health:76,
+     role:"代建方 · 项目统筹", power:"全过程组织、协调、报批、投资控制",
+     act:"并联推进各主体、每周例会协调、月报报送", block:"开学节点倒排下的多专项统筹",
+     tags:["代建制","项目统筹"], phases:[0,1,2,3,4,5]},
+    {id:"owner", name:"业主单位（区教育局）", short:"教育局", type:"gov", health:72,
+     role:"项目业主", power:"投资决策、学位测算、开学时点",
+     act:"需求提报、验收确认、资金拨付", block:"学位测算与建设规模反复对齐",
+     tags:["业主","教育"], phases:[0,2,4,5]},
+    {id:"school", name:"使用单位（校方）", short:"校方筹建组", type:"part", health:64,
+     role:"使用单位", power:"办学需求、功能确认",
+     act:"功能需求提报、教育信息化与实验室专项对接", block:"教育专项需求后置、变更频繁",
+     tags:["使用单位","教育专项"], phases:[1,3,4,5]},
+    {id:"gov", name:"政府审批部门", short:"审批部门", type:"gov", health:67,
+     role:"发改 / 住建 / 教育 / 消防", power:"审批、资金、土地",
+     act:"并联审批、消防与教育专项验收", block:"消防与教育专项验收时序交叉",
+     tags:["审批监管"], phases:[0,1,2,4]},
+    {id:"design", name:"设计单位", short:"设计院", type:"part", health:74,
+     role:"勘察设计", power:"设计质量与进度",
+     act:"图纸交付、设计变更、校园专项设计", block:"声学/照明与教室布局的细节咬合",
+     tags:["勘察设计"], phases:[1,3,4]},
+    {id:"epc", name:"施工总承包", short:"总承包", type:"part", health:69,
+     role:"施工总承包", power:"工期、造价、安全、质量",
+     act:"现场实施、分包管理、进度汇报", block:"运动场与外墙界面交叉施工",
+     tags:["施工总承包"], phases:[2,3,4]},
+    {id:"super", name:"监理单位", short:"监理", type:"part", health:81,
+     role:"工程监理", power:"质量、进度、安全监督",
+     act:"旁站、验收签认、监理例会", block:"声学/安防等专项检测见证频次不足",
+     tags:["监理"], phases:[3,4]},
+    {id:"community", name:"周边社区与街道", short:"社区街道", type:"gov", health:78,
+     role:"外部相关方", power:"施工扰民协调、入学政策配合",
+     act:"施工协调、入学摸底对接", block:"施工噪声与渣土运输的投诉压力",
+     tags:["外部相关方"], phases:[2,3,4]}
+  ],
+  links:[
+    ["agent","owner","报批/需求",75],["agent","school","需求对接",59],
+    ["agent","gov","审批推进",66],["agent","design","设计协同",77],
+    ["agent","epc","施工统筹",72],["agent","super","监理协同",83],
+    ["owner","school","学位测算",68],["owner","gov","立项/资金",71],
+    ["epc","design","施工图衔接",63],["epc","super","验收签认",80],
+    ["design","gov","图审",61],["epc","community","施工协调",54]
+  ],
+  phases:[
+    {label:"前期立项", date:"2023-05", diag:"立项与学位测算同步推进，但校方尚未成立筹建组，办学需求只能由教育局代为转述。"},
+    {label:"勘察设计", date:"2023-09", diag:"教室声学、照明与教育信息化专项在设计阶段未完全闭合，为施工期变更埋下隐患。"},
+    {label:"招标采购", date:"2024-02", diag:"施工总承包与教育信息化采购界面划分清晰，但运动场基层由谁施工一度存在分歧。"},
+    {label:"施工实施", date:"2024-06", diag:"开学节点倒排工期下，外墙、运动场、室内安装三线交叉，社区对施工噪声投诉集中。"},
+    {label:"专项验收", date:"2026-01", diag:"消防与教育专项验收时序交叉，资料归集口径不一拖累总体进度。"},
+    {label:"移交开学", date:"2026-04", diag:"校方功能确认与移交组织有序，学位摸底与建设规模最终对齐。"}
+  ],
+  blockers:[
+    {t:"教育专项需求后置", sev:"高", d:"信息化、实验室等需求在施工阶段才细化，引发返工",
+     ev:"信息化桥架与插座点位三度调整（示例数据）",
+     fix:"设计阶段锁定办学需求清单，变更走评审并评估工期影响", orgs:["school","agent","design"]},
+    {t:"审批时序依赖", sev:"高", d:"消防与教育专项验收串联，前置件未出则后续停摆",
+     ev:"消防验收排队约 15 天，影响开学准备（示例数据）",
+     fix:"并联报建 + 容缺受理，验收事项设置预警机制", orgs:["gov","agent"]},
+    {t:"施工噪声与社区协调", sev:"中", d:"夜间渣土与噪声引发投诉，施工窗口被压缩",
+     ev:"季度内社区投诉 8 起，2 次约谈（示例数据）",
+     fix:"施工窗口与社区公示联动，渣土运输避开敏感时段", orgs:["epc","community","agent"]},
+    {t:"权责边界模糊", sev:"中", d:"运动场基层、绿化等界面在合同中约定留白",
+     ev:"界面争议导致工期延误约 10 天（示例数据）",
+     fix:"编制界面清单并签认，明确各分项牵头主体", orgs:["agent","epc","design"]},
+    {t:"目标错位", sev:"中", d:"教育局重开学时点、校方重功能完整性、总包重成本",
+     ev:"开学时点与样板教室标准在第三季度冲突（示例数据）",
+     fix:"建立三级目标对齐机制，协同指标纳入考核", orgs:["owner","school","epc"]},
+    {t:"信息口径不一致", sev:"低", d:"现场进度与教育局台账口径不一",
+     ev:"周报与台账形象进度偏差 2 个百分点（示例数据）",
+     fix:"统一数据底座与报表口径，例会固定通报", orgs:["agent","owner"]}
+  ],
+  dims:[
+    {n:"权责清晰度",v:73},{n:"信息通畅度",v:74},{n:"审批效率",v:62},
+    {n:"目标一致性",v:75},{n:"需求稳定性",v:60}
+  ],
+  prev:{date:"2025-10",total:67,dims:[69,69,58,72,56],
+    orgs:{agent:73,owner:70,school:58,gov:64,design:71,epc:66,super:80,community:80}}
+},
+{
+  meta:{project:"示例项目：临江市第三水厂提标改造",mode:"建设模式：代建制 + EPC",
+    date:"体检日期：2026-03",badge:"示例数据 · 虚构项目，仅作演示",progress:55},
+  total:67,
+  orgs:[
+    {id:"agent", name:"代建单位", short:"代建办", type:"core", health:71,
+     role:"代建方 · 项目统筹", power:"全过程组织、协调、报批、投资控制",
+     act:"停水切换组织、节点协调、月报报送", block:"新旧系统接驳的多专业统筹",
+     tags:["代建制","项目统筹"], phases:[0,1,2,3,4,5]},
+    {id:"owner", name:"业主单位（水务集团）", short:"水务集团", type:"gov", health:73,
+     role:"项目业主", power:"投资决策、供水安全、运行考核",
+     act:"停水窗口审批、运行考核、资金拨付", block:"停电停水窗口与施工范围的反复博弈",
+     tags:["业主","供水"], phases:[0,1,2,3,4,5]},
+    {id:"operate", name:"运行单位（水厂）", short:"水厂运行部", type:"part", health:65,
+     role:"运行单位", power:"运行安全、工艺确认",
+     act:"运行人员提前介入、工艺参数确认", block:"运行规程与新建工艺的衔接培训不足",
+     tags:["运行单位","工艺"], phases:[2,3,4,5]},
+    {id:"gov", name:"政府审批部门", short:"审批部门", type:"gov", health:62,
+     role:"水务 / 住建 / 环保", power:"审批、环保标准、资金",
+     act:"并联审批、环保验收、取水许可", block:"提标标准与审批口径的更新滞后",
+     tags:["审批监管","环保"], phases:[0,1,2,4]},
+    {id:"design", name:"设计单位", short:"设计院", type:"part", health:70,
+     role:"勘察设计", power:"工艺与结构设计",
+     act:"图纸交付、老管线交底、设计变更", block:"老管线资料缺失导致交底不足",
+     tags:["勘察设计"], phases:[1,3,4]},
+    {id:"epc", name:"EPC 总承包", short:"EPC", type:"part", health:64,
+     role:"施工总承包", power:"工期、造价、安全、质量",
+     act:"深基坑施工、设备安装、调试配合", block:"设备到货滞后与安装交叉冲突",
+     tags:["EPC","设备安装"], phases:[2,3,4]},
+    {id:"super", name:"监理单位", short:"监理", type:"part", health:79,
+     role:"工程监理", power:"质量、安全、停水见证",
+     act:"深基坑旁站、停水切换见证", block:"夜间停水施工的见证力量不足",
+     tags:["监理"], phases:[3,4]},
+    {id:"community", name:"受影响居民与商户", short:"周边商户", type:"gov", health:76,
+     role:"外部相关方", power:"停水与交通影响反馈",
+     act:"停水通知确认、施工围挡协调", block:"停水时段与商户经营冲突",
+     tags:["外部相关方"], phases:[2,3,4]}
+  ],
+  links:[
+    ["agent","owner","报批/窗口",74],["agent","operate","运行衔接",60],
+    ["agent","gov","审批推进",63],["agent","design","设计协同",75],
+    ["agent","epc","施工统筹",70],["agent","super","监理协同",81],
+    ["owner","operate","工艺考核",66],["owner","gov","标准/许可",64],
+    ["epc","design","图纸交底",58],["epc","super","基坑见证",78],
+    ["design","gov","环评论证",65],["epc","community","停水协调",52]
+  ],
+  phases:[
+    {label:"前期立项", date:"2023-08", diag:"提标标准在立项后更新，设计规模随之调整，审批口径一度不一致。"},
+    {label:"勘察设计", date:"2024-01", diag:"老管线资料缺失，交底深度不足，深基坑段设计变更集中。"},
+    {label:"招标采购", date:"2024-07", diag:"设备采购与安装界面划分不清，膜组件等长周期设备到货滞后于计划。"},
+    {label:"施工实施", date:"2024-11", diag:"深基坑与既有水厂运行毗邻，安全与保供压力叠加；夜间停水切换频繁。"},
+    {label:"调试验收", date:"2026-02", diag:"调试与环保验收交叉，运行人员介入偏晚，工艺参数确认反复。"},
+    {label:"通水移交", date:"2026-03", diag:"临时通水与正式移交界面清晰，运行规程在移交前补齐。"}
+  ],
+  blockers:[
+    {t:"停水切换窗口紧张", sev:"高", d:"停水窗口与施工范围反复博弈，夜间施工风险高",
+     ev:"一季度 6 次夜间停水切换，2 次超出窗口时长（示例数据）",
+     fix:"窗口核定前置：施工量倒排 + 机动备用窗口，切换全程双见证", orgs:["owner","agent","epc"]},
+    {t:"老管线交底不足", sev:"高", d:"既有管网资料缺失，深基坑与接驳风险叠加",
+     ev:"开挖碰撞老管线 3 起，其中 1 起导致临时停水（示例数据）",
+     fix:"开工前物探复核 + 管网一张图共享，接驳段人工探挖", orgs:["design","epc","agent"]},
+    {t:"设备到货滞后", sev:"高", d:"膜组件等长周期设备到货晚于安装窗口",
+     ev:"到货滞后约 25 天，安装与土建交叉返工（示例数据）",
+     fix:"长周期设备采购前置，到货与安装计划联动预警", orgs:["epc","agent","design"]},
+    {t:"审批标准更新滞后", sev:"中", d:"提标标准更新后报建口径未同步刷新",
+     ev:"环评补充材料一次退回，延误约 12 天（示例数据）",
+     fix:"标准更新即触发口径复核，报建清单版本化管理", orgs:["gov","agent"]},
+    {t:"运行介入偏晚", sev:"中", d:"调试中后期运行人员才介入，工艺参数确认反复",
+     ev:"调试记录显示 4 项参数由运行方二次确认（示例数据）",
+     fix:"运行提前介入机制：施工图会签即驻场，调试全程参与", orgs:["operate","agent","epc"]},
+    {t:"停水与商户经营冲突", sev:"低", d:"停水时段与周边商户经营时段冲突",
+     ev:"停水通知后收到 5 起商户反馈（示例数据）",
+     fix:"通知提前 72 小时 + 分区分时段停水，高峰避开经营时段", orgs:["community","owner","epc"]}
+  ],
+  dims:[
+    {n:"权责清晰度",v:70},{n:"信息通畅度",v:72},{n:"审批效率",v:57},
+    {n:"目标一致性",v:71},{n:"需求稳定性",v:63}
+  ],
+  prev:{date:"2025-09",total:64,dims:[66,66,54,68,60],
+    orgs:{agent:68,owner:70,operate:60,gov:60,design:66,epc:60,super:76,community:72}}
+}
+];
+
+/* ================= 数据层（导入 / 导出 / 重渲染） ================= */
+let DATA=null;
+function loadData(d){
+  DATA=d;
+  view.z=1;view.x=view.y=0;   // v12：复位画布视口
+  kbNode=null;hoverNode=null;selNode=null;selLink=null;dragNode=null;panning=false;
+  // header
+  const m=d.meta||{};
+  // v7：徽章声明并入信息条（原 header badge 已移除）
+  $("metaChips").innerHTML=
+    `<span class="chip">${esc(m.badge||"示例数据 · 虚构项目，仅作演示")}</span>`+
+    `<span class="chip">${esc(m.project||"")}</span>`+
+    `<span class="chip">${esc(m.mode||"")}</span>`+
+    `<span class="chip">${esc(m.date||"")}</span>`;
+  // v7：先算维度归因（总览维度列表 / 卡点角标 / 维度过滤都依赖它）
+  attrMap=(d.blockers||[]).map(dimOfBlocker);
+  activeDim=null;
+  const pct=Math.max(0,Math.min(100,m.progress==null?88:m.progress));
+  $("tlFill").style.width=pct+"%";
+  const tlNow=$("tlNow");
+  if(tlNow){
+    tlNow.style.left=pct+"%";
+    tlNow.querySelector("span").textContent="当前 "+pct+"%";
+    tlNow.classList.toggle("tail",pct>=92); // v6：贴右边缘时翻转标签防溢出
+  }
+  // overview（v7 英雄区）
+  buildOverview();
+  // timeline
+  buildTimeline();
+  // net
+  buildNet();
+  // blockers
+  buildBlockers();
+  // 风险速览（v3）
+  buildRisks();
+  // 对比面板（v4，若处于对比模式则随数据刷新）
+  if(typeof renderCompare==="function")renderCompare();
+  // 重置详情与报告
+  detail.innerHTML=`<h3>诊断详情</h3><div class="empty">点击总览五维、时间轴阶段、网络中的主体或关系、或下方卡点，在此查看结构化诊断。</div>`;
+  activePhase=null;activeBlocker=null;
+  const si=$("blkSearch");if(si)si.value="";
+  const sc2=$("blkCount");if(sc2)sc2.textContent="";
+  $("netHint").classList.remove("show");
+  resetReport();
+}
+function clone(o){return JSON.parse(JSON.stringify(o));}
+
+/* ================= 总览：环形图 + 维度条 ================= */
+/* v11：五维签名色 —— 点击维度时该色贯穿角标 / 详情 / 网络高亮环 */
+const DIM_COLORS_LIGHT=["#3b5bdb","#0891b2","#7c3aed","#059669","#db2777"];
+const DIM_COLORS_DARK =["#818cf8","#22d3ee","#a78bfa","#34d399","#f472b6"];
+function dimColorOf(i){
+  const a=isDark()?DIM_COLORS_DARK:DIM_COLORS_LIGHT;
+  return a[i%a.length];
+}
+/* v7：自动总检结论（结论先行） */
+function buildConclusion(){
+  const dims=(DATA.dims||[]).slice().sort((a,b)=>b.v-a.v);
+  const highs=(DATA.blockers||[]).filter(b=>b.sev==="高").length;
+  const parts=[];
+  const weak=dims.filter(d=>d.v<70).map(d=>d.n);
+  const strong=dims.slice(0,2).filter(d=>d.v>=75).map(d=>d.n);
+  if(strong.length)parts.push("「"+strong.join("、")+"」保持优势");
+  if(weak.length)parts.push("「"+weak.join("、")+"」为短板项，建议优先干预");
+  if(highs>0)parts.push("识别出高风险协同卡点 "+highs+" 项，建议 30 天内启动分诊整改");
+  if(!parts.length)parts.push("五维评分均在 70 分以上，无高风险卡点，协同体系总体可控");
+  /* v12：复查同比 */
+  const prev=DATA.prev;
+  if(prev&&typeof prev.total==="number"&&prev.date){
+    const dT=(DATA.total||0)-prev.total;
+    const dimsNow=(DATA.dims||[]), dimsPrev=prev.dims||[];
+    const worse=dimsNow.map((x,i)=>({n:x.n,d:(typeof dimsPrev[i]==="number")?x.v-dimsPrev[i]:null}))
+      .filter(x=>x.d!==null&&x.d<0).map(x=>x.n);
+    const better=dimsNow.map((x,i)=>({n:x.n,d:(typeof dimsPrev[i]==="number")?x.v-dimsPrev[i]:null}))
+      .filter(x=>x.d!==null&&x.d>0).map(x=>x.n);
+    const t=dT>0?"+"+dT+" 分":dT<0?String(dT)+" 分":"与上次持平";   /* v15：0 分时输出「持平」而非「持平0」；v23（轻）：带单位「分」，与复查 chip「+5 分」口径一致 */
+    parts.push("较上次体检（"+prev.date+"）总分 "+(dT===0?"与上次持平":t)+
+      (better.length?"，「"+better.join("、")+"」改善":"")+
+      (worse.length?(!better.length?"":"，")+"「"+worse.join("、")+"」恶化":""));
+  }
+  return "总体协同框架"+((DATA.total||0)>=75?"运转成熟，可沉淀为标准动作":(DATA.total||0)>=65?"基本有效，仍有可观察的提升空间":"存在明显结构性缺口，需专题整改")+"。"+parts.join("；")+"。";
+}
+/* v7：五维雷达图 SVG */
+function buildRadarSVG(){
+  const dims=DATA.dims||[];
+  const n=dims.length;
+  if(n<3)return "";
+  const cx=115, cy=115, R=80;
+  const ang=i=>-Math.PI/2+i*2*Math.PI/n;
+  const pt=(i,r)=>[cx+Math.cos(ang(i))*r, cy+Math.sin(ang(i))*r];
+  const ring=r=>dims.map((_,i)=>pt(i,r).map(v=>v.toFixed(1)).join(",")).join(" ");
+  const pp=PAL();
+  const ink=pp.nodeText, muted=pp.label, good=pp.good, bad=pp.bad, line=pp.track;
+  let g="";
+  [1,0.75,0.5,0.25].forEach((f,k)=>{
+    g+=`<polygon points="${ring(R*f)}" fill="none" stroke="${line}" stroke-width="${k===0?1.4:0.8}"/>`;
+  });
+  dims.forEach((d,i)=>{
+    const [x,y]=pt(i,R);
+    g+=`<line x1="${cx}" y1="${cy}" x2="${x.toFixed(1)}" y2="${y.toFixed(1)}" stroke="${line}" stroke-width="0.8"/>`;
+    const [lx,ly]=pt(i,R+20);
+    const val=Math.max(0,Math.min(100,d.v));
+    const weak=val<70;
+    g+=`<text x="${lx.toFixed(1)}" y="${(ly+4).toFixed(1)}" text-anchor="middle" font-size="10.5" fill="${weak?bad:muted}" font-weight="${weak?700:500}">${esc(d.n)} ${val}</text>`;
+  });
+  const pts=dims.map((d,i)=>pt(i,R*Math.max(0,Math.min(100,d.v))/100).map(v=>v.toFixed(1)).join(",")).join(" ");
+  const verts=dims.map((d,i)=>{const [x,y]=pt(i,R*Math.max(0,Math.min(100,d.v))/100);return `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="3.2" fill="${d.v<70?bad:good}"/>`;}).join("");
+  g+=`<polygon points="${pts}" fill="${good}28" stroke="${good}" stroke-width="2"/>`+verts;
+  g+=`<text x="${cx}" y="${cy+4}" text-anchor="middle" font-size="13" font-family="Georgia,serif" fill="${ink}" font-weight="700">${DATA.total||0}</text>`;
+  return `<svg width="230" height="230" viewBox="-20 -20 270 270" role="img" aria-label="五维协同评分雷达图">${g}</svg>`;   /* v14：外缘标签不再裁切 */
+}
+/* v7：维度↔卡点归因（关键词规则，取首个命中最多的维度） */
+const DIM_RULES=[
+  /权责|边界|职责|分工|牵头/,
+  /信息|数据|口径|对称|资料|报表|告知|投诉/,
+  /审批|时序|前置|许可|串联|报装|迁改|征拆|占道/,
+  /目标|错位|考核|优先|冲突/,
+  /需求|变更|反复|界面|专项/
+];
+function dimOfBlocker(b){
+  /* v20：归因匹配前先剥掉 ev / fix 里「（示例数据）」等样例标记——后缀中的「数据」等词
+   * 命中信息通畅度规则，凡只命中一个语义规则的卡点都被下标最小的该维抢走（node 实跑
+   * 五场景几乎全归同一维）；同时改为按命中次数计票，平局取文本中最先命中的维度
+   *（标题拼接在最前，标题词优先），不再默认取下标最小者 */
+  const clean=s=>(s||"").replace(/（示例[^）]*）/g,"");
+  const txt=clean(b.t||"")+" "+clean(b.d||"")+" "+clean(b.ev||"")+" "+clean(b.fix||"");
+  const counts=(DATA.dims||[]).map(()=>0), firstPos=(DATA.dims||[]).map(()=>-1);
+  DIM_RULES.forEach((re,di)=>{
+    if(di>=counts.length)return;
+    const hits=txt.match(new RegExp(re.source,"g"));   /* 计票：同规则多次命中累计 */
+    if(hits){ counts[di]=hits.length; firstPos[di]=txt.search(re); }
+  });
+  let best=-1;
+  counts.forEach((c,i)=>{
+    if(c<=0)return;
+    if(best<0||c>counts[best]||(c===counts[best]&&firstPos[i]<firstPos[best]))best=i;
+  });
+  return best;
+}
+function clearDimSel(){
+  activeDim=null;
+  document.querySelectorAll(".dim-row").forEach(r=>r.setAttribute("aria-pressed","false"));
+  document.querySelectorAll(".blk").forEach(el=>el.classList.remove("dim-fade"));
+}
+/* v18：维度详情面板单独成函数——pickDim 与 refreshThemeArtifacts 共用，
+ * 主题切换时按新主题重取标题 / 分值的签名色（原渲染时按当时主题写死内联色，切深色后详情面板是全站唯一没换色的构件） */
+function renderDimDetail(i){
+  const d=DATA.dims[i];
+  const rel=(DATA.blockers||[]).map((b,k)=>({b,k})).filter(x=>attrMap[x.k]===i);
+  const weak=(d.v||0)<70?"<div class='row'><span class='k'>状态</span>低于 70 分，判定为短板项</div>":"";
+  /* v22（轻）：归因卡点标签改用本维度签名色（与卡点卡上的同名角标同一来源 dimColorOf），
+     原复用监管紫 .tag.gov，颜色身份在详情面板这一环断了 */
+  const chips=rel.length
+    ? rel.map(x=>`<button class="tag" data-bi="${x.k}" style="color:${dimColorOf(i)};border-color:${dimColorOf(i)}">⚑ ${esc(x.b.t)}</button>`).join("")
+    : "<span class='empty'>该维度下暂无归因卡点</span>";
+  detail.innerHTML=`<h3 style="color:${dimColorOf(i)}">维度诊断 · ${esc(d.n)}</h3>
+    <div class="row"><span class="k">评分</span><b style="font-family:var(--serif);font-size:20px;color:${dimColorOf(i)}">${d.v}</b> / 100</div>
+    ${weak}
+    <div class="row"><span class="k">归因卡点（点击展开）</span>${chips}</div>`;
+  detail.querySelectorAll("button.tag[data-bi]").forEach(btn=>{
+    btn.addEventListener("click",()=>jumpToBlocker(parseInt(btn.dataset.bi,10)));
+  });
+}
+/* v7：维度过滤（与阶段 / 卡点同为「单一过滤器」语义） */
+function pickDim(i){
+  const rows=document.querySelectorAll(".dim-row");
+  const was=activeDim===i;
+  activeDim=was?null:i;
+  selNode=null;selLink=null;activeBlocker=null;activePhase=null;
+  clearBlkSel();clearTlSel();updateQuickSel();if(!fromBlkSearch)clearBlkSearch();   /* v24：选维度时清搜索框并重跑；输入路径的互斥清维度除外（fromBlkSearch），否则正输入的字被自身抹掉 */
+  rows.forEach(r=>{
+    const di=r.dataset?parseInt(r.dataset.di,10):-1;   /* v14：按下标而非显示位置 */
+    r.setAttribute("aria-pressed",(activeDim!==null&&di===i)?"true":"false");   /* v18：取消过滤时按下态一并清除（与 pickPhase 关闭分支一致），不再「关了过滤还亮着」 */
+  });
+  /* v22（轻）：0 归因维度不触发整页淡出（否则卡点区全半透明、像出了故障）——
+     淡出与网络高亮只在该维度确有归因卡点时挂，无归因时面板与提示条如实说明 */
+  const rel=activeDim===null?[]:(DATA.blockers||[]).map((b,k)=>({b,k})).filter(x=>attrMap[x.k]===activeDim);
+  document.querySelectorAll(".blk").forEach(el=>{
+    const bi=el.dataset?parseInt(el.dataset.bi,10):-1;   /* v14：统一数据下标（与搜索/跳转一致） */
+    el.classList.toggle("dim-fade",rel.length>0&&attrMap[bi]!==activeDim);
+  });
+  if(activeDim!==null){
+    renderDimDetail(activeDim);   /* v18：面板渲染抽成 renderDimDetail，主题切换时可重绘 */
+    const d=DATA.dims[activeDim];
+    const names=(DATA.orgs||[]).filter(o=>rel.some(x=>(x.b.orgs||[]).includes(o.id))).map(o=>o.short);
+    $("netHint").classList.add("show");
+    /* v22（轻）：0 归因时不再报「高亮 0 个关联主体（—）」——明示该维度当前无归因卡点 */
+    $("netHint").textContent=names.length
+      ?"维度归因：「"+d.n+"」高亮 "+names.length+" 个关联主体（"+names.join("、")+"）"
+      :"维度归因：「"+d.n+"」当前无归因卡点";
+  }else{
+    $("netHint").classList.remove("show");
+    detail.innerHTML=`<h3>诊断详情</h3><div class="empty">点击总览五维、时间轴阶段、网络中的主体或关系、或下方卡点，在此查看结构化诊断。</div>`;
+  }
+  wake();
+}
+function buildOverview(){
+  const TOTAL=Math.max(0,Math.min(100,DATA.total||0));
+  // v7：报告头编号与签发日期
+  $("reportNo").textContent=buildReportNo();
+  $("reportDate").textContent="签发："+cleanIssueDate(DATA);   /* v14：剥掉前缀，避免「签发：体检日期：…」 */
+  // 大数字计数（v21：prefersReduced 为真时一次性置终值，跳过 setInterval 计数——
+  // 全站动效均承诺尊重「减少动态」偏好，此入口原是唯一漏网处）
+  let n=0;const sv=$("scoreV");
+  clearInterval(sv._iv);
+  if(prefersReduced){sv.textContent=TOTAL;}
+  else{
+    sv.textContent="0";
+    sv._iv=setInterval(()=>{
+      n++;sv.textContent=n;
+      if(n>=TOTAL){sv.textContent=TOTAL;clearInterval(sv._iv);}
+    },16);
+  }
+  // 印章（v7：从等级「良（B）」拆出名称与字母）
+  const gstr=gradeOf(TOTAL);
+  const seal=$("gradeSeal");
+  if(seal){
+    const m=/^(.+?)（(.)）$/.exec(gstr);
+    if(m){
+      seal.innerHTML=esc(m[1])+"<b>"+esc(m[2])+"</b>";
+      $("gradeNote").textContent="协同健康度 · "+m[1]+"（"+m[2]+"）";
+    }
+  }
+  /* v12：复查快照 —— 总分较上次 */
+  const chip=$("deltaChip");
+  if(chip){
+    const prev=DATA.prev;
+    if(prev&&typeof prev.total==="number"&&prev.date){
+      const d=TOTAL-prev.total;
+      chip.hidden=false;
+      chip.className="delta-chip "+(d>0?"up":d<0?"down":"eq");
+      chip.textContent="较上次（"+esc(prev.date)+"）"+(d>0?"+"+d+" 分":d<0?d+" 分":"与上次持平");   /* v15：0 分时不再出现「持平 分」 */
+    }else{
+      chip.hidden=true;chip.textContent="";
+    }
+  }
+  const hc=$("heroConcl");
+  if(hc)hc.textContent=buildConclusion();
+  const rb=$("radarBox");
+  if(rb)rb.innerHTML=buildRadarSVG();
+  const dimsEl=$("dims");
+  dimsEl.innerHTML="";
+  const sorted=(DATA.dims||[]).map((d,i)=>({d,i})).sort((a,b)=>b.d.v-a.d.v);
+  /* v18：「短板」口径与雷达图（<70 顶点即红）及结论句（<70 都列为短板项）统一：所有 <70 的维度都挂短板标，不再只标最低那一项 */
+  const weakSet=new Set(sorted.filter(x=>x.d.v<70).map(x=>x.i));
+  sorted.forEach(({d,i},k)=>{
+    const row=document.createElement("button");
+    row.className="dim-row";row.type="button";
+    row.setAttribute("aria-pressed","false");
+    row.setAttribute("aria-label","维度 "+d.n+"，评分 "+d.v+(weakSet.has(i)?"，短板项":"")+"，点击按维度过滤关联卡点");
+    const cnt=attrMap.filter(a=>a===i).length;
+    row.setAttribute("style","--band-color:"+dimColorOf(i));   /* v11：维度签名色 */
+    row.setAttribute("data-di",String(i));   /* v14：数据下标（列表按分排序，显示位置≠下标） */
+    /* v12：复查 Δ —— ▲ 改善 / ▼ 恶化 */
+    const pv=(DATA.prev&&DATA.prev.dims)?DATA.prev.dims[i]:null;
+    const dd=(typeof pv==="number")?(d.v-pv):null;
+    const ddHtml=dd===null?"":'<span class="ddelta '+(dd>0?"up":dd<0?"down":"eq")+'">'+
+      (dd>0?"▲ +"+dd:dd<0?"▼ "+dd:"— 0")+"</span>";
+    row.innerHTML=`<span>${esc(d.n)}${weakSet.has(i)?'<span class="weak">短板</span>':""}<span class="dcnt">归因 ${cnt} 项</span>${ddHtml}</span><span class="dv">${d.v}</span>`;
+    /* v22（轻）：归因计数恒显——0 项时给灰色「归因 0 项」徽标明示（.dcnt 本即 muted 灰），
+       点击前就有「此项无归因卡点」的预期，不再点了才发现整页淡出 */
+    row.addEventListener("click",()=>pickDim(i));
+    dimsEl.appendChild(row);
+  });
+}
+
+/* ================= 时间轴 ================= */
+const tl=$("tl");
+let activePhase=null;
+function buildTimeline(){
+  tl.querySelectorAll(".tl-m,.tl-label,.tl-date,.tl-dots").forEach(x=>x.remove());
+  const P=DATA.phases||[];
+  P.forEach((p,i)=>{
+    const pos=P.length<2?50:i/(P.length-1)*100;
+    const edge=i===0?"lead":i===P.length-1?"tail":"";
+    const dot=document.createElement("button");
+    dot.className="tl-m";dot.style.left=pos+"%";
+    dot.setAttribute("aria-label","阶段："+p.label+"，"+p.date);
+    dot.setAttribute("aria-pressed","false");
+    dot.addEventListener("click",()=>pickPhase(i));
+    tl.appendChild(dot);
+    const lab=document.createElement("div");
+    lab.className="tl-label "+edge;lab.style.left=pos+"%";
+    lab.textContent=p.label;
+    lab.setAttribute("role","button");
+    lab.setAttribute("tabindex","0");
+    lab.setAttribute("aria-label","阶段："+p.label+"，"+p.date);
+    lab.addEventListener("click",()=>pickPhase(i));
+    lab.addEventListener("keydown",e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();pickPhase(i);}});
+    tl.appendChild(lab);
+    const dt=document.createElement("div");
+    dt.className="tl-date "+edge;dt.style.left=pos+"%";
+    /* v22（中）：区间日期拆成 起始~结束 两段——窄屏（≤640px）CSS 只保留起始年月，
+       原整串约 105px，手机上相邻节点间隔只有 60px 出头，必然与邻节叠字 */
+    const dParts=String(p.date||"").split("~");
+    if(dParts.length>1){
+      dt.innerHTML=esc(dParts[0].trim())+'<span class="d-sep"> ~ </span><span class="d-to">'+esc(dParts[1].trim())+"</span>";
+    }else{
+      dt.textContent=p.date;
+    }
+    tl.appendChild(dt);
+    // v7：该阶段参与主体密度（装饰性）
+    const cnt=(DATA.orgs||[]).filter(o=>(o.phases||[]).includes(i)).length;
+    const dr=document.createElement("div");
+    dr.className="tl-dots "+edge;dr.style.left=pos+"%";
+    for(let k=0;k<cnt;k++)dr.appendChild(document.createElement("i"));
+    tl.appendChild(dr);
+  });
+}
+function pickPhase(i){
+  const dots=tl.querySelectorAll(".tl-m");
+  const was=activePhase===i;
+  activePhase=was?null:i;
+  // 统一为「单一过滤器」：清除主体 / 关系 / 卡点 / 维度选中态
+  selNode=null;selLink=null;activeBlocker=null;
+  clearBlkSel();updateQuickSel();clearDimSel();clearBlkSearch();   /* v24：选阶段时清搜索框并重跑 */
+  dots.forEach(d=>d.classList.remove("sel"));
+  if(activePhase!==null){
+    dots[i].classList.add("sel");
+    dots.forEach((d,k)=>d.setAttribute("aria-pressed",k===i?"true":"false"));
+    const p=DATA.phases[i];
+    const names=(DATA.orgs||[]).filter(o=>(o.phases||[]).includes(i)).map(o=>o.short);
+    detail.innerHTML=`<h3>阶段诊断 · ${esc(p.label)}</h3>
+      <div class="row"><span class="k">时间</span>${esc(p.date)}</div>
+      <div class="row"><span class="k">阶段诊断</span>${esc(p.diag)}</div>
+      <div class="row"><span class="k">参与主体</span>${esc(names.join("、")||"—")}</div>`;
+    $("netHint").classList.add("show");
+    $("netHint").textContent="阶段过滤：「"+p.label+"」高亮参与主体，其余主体淡出";
+  }else{
+    dots.forEach(d=>d.setAttribute("aria-pressed","false"));
+    $("netHint").classList.remove("show");
+    detail.innerHTML=`<h3>诊断详情</h3><div class="empty">点击总览五维、时间轴阶段、网络中的主体或关系、或下方卡点，在此查看结构化诊断。</div>`;
+  }
+  wake();
+}
+
+/* ================= 关系网络（力导向） ================= */
+const canvas=$("net"), ctx=canvas.getContext("2d");
+let W=0,H=0,N=[],L=[];
+function resize(){
+  const r=canvas.getBoundingClientRect();
+  const dpr=window.devicePixelRatio||1;
+  W=Math.max(280,r.width);
+  H=Math.max(300,r.height||430);
+  canvas.width=W*dpr;canvas.height=H*dpr;
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  wake();   /* v14：节能暂停期间改变窗口不再留白板 */
+}
+window.addEventListener("resize",resize);
+
+let selNode=null,selLink=null,hoverNode=null,dragNode=null,moved=false,mx0=0,my0=0;
+let kbNode=null; // v4：键盘导航焦点节点
+let activeBlocker=null;
+/* v12：画布视口 —— 滚轮缩放（0.5–2.5）/ 背景拖拽平移 / 0 键复位 */
+const view={z:1,x:0,y:0};
+let panning=false,panMoved=false,lx=0,ly=0;
+/* 健康度色带：v11 语义多色 —— 翠(≥75) / 靛(65–74) / 红(<65)；维度签名色用于过滤高亮 */
+/* v22（中）：printLight——深色模式下打印时置真，draw() 以浅色调色板重绘画布位图（白纸上
+   PAL_DARK 的连线 / 健康度外环 / 核心实心圆对比度极低），afterprint 后置假随 wake() 恢复 */
+let printLight=false;
+const PAL_LIGHT={good:"#059669",mid:"#3b5bdb",bad:"#dc2626",
+  link:"59,91,219",linkBad:"220,38,38",label:"#5b6b80",nodeFill:"#ffffff",
+  nodeText:"#182230",nodeTextOn:"#ffffff",track:"#e7ebf0",heavy:"#182230"};
+const PAL_DARK={good:"#34d399",mid:"#818cf8",bad:"#f0524a",
+  link:"129,140,248",linkBad:"240,82,74",label:"#8a96ab",nodeFill:"#141c2e",
+  nodeText:"#e6eaf2",nodeTextOn:"#0b1120",track:"#1e2740",heavy:"#e6eaf2"};
+function PAL(){return isDark()&&!printLight?PAL_DARK:PAL_LIGHT;}
+function colorOf(o){
+  const p=PAL();
+  const h=o.health;
+  if(h==null)return p.mid;
+  if(h<65)return p.bad;
+  if(h<75)return p.mid;
+  return p.good;
+}
+function phaseOrgs(){
+  if(activePhase===null)return null;
+  return new Set((DATA.orgs||[]).filter(o=>(o.phases||[]).includes(activePhase)).map(o=>o.id));
+}
+function blockerOrgs(){
+  if(activeBlocker===null)return null;
+  return new Set(DATA.blockers[activeBlocker].orgs||[]);
+}
+/* v7：维度归因过滤 —— 某维度下被归因卡点涉及的主体集合 */
+let activeDim=null, attrMap=[];
+function dimOrgs(){
+  if(activeDim===null)return null;
+  const s=new Set();
+  (DATA.blockers||[]).forEach((b,i)=>{
+    if(attrMap[i]===activeDim)(b.orgs||[]).forEach(id=>s.add(id));
+  });
+  return s.size?s:null;   /* v22：0 归因维度不过滤网络——空集会让全部主体淡成 0.16，像整图褪色 */
+}
+function dimOf(n,l){
+  const inPhase=phaseOrgs(), inBlk=blockerOrgs(), inDim=dimOrgs();
+  if(inPhase!==null){
+    if(!inPhase.has(n.id))return 0.16;
+    if(l!==undefined&&!(inPhase.has(N[l.a].id)&&inPhase.has(N[l.b].id)))return 0.16;
+  }
+  if(inBlk!==null){
+    if(!inBlk.has(n.id))return 0.16;
+    if(l!==undefined&&!(inBlk.has(N[l.a].id)&&inBlk.has(N[l.b].id)))return 0.16;
+  }
+  if(inDim!==null){
+    if(!inDim.has(n.id))return 0.16;
+    if(l!==undefined&&!(inDim.has(N[l.a].id)&&inDim.has(N[l.b].id)))return 0.16;
+  }
+  if(selNode){
+    if(n!==selNode&&!L.some(x=>(x.a===selNode.i&&x.b===n.i)||(x.b===selNode.i&&x.a===n.i)))return 0.18;
+    if(l!==undefined&&l.a!==selNode.i&&l.b!==selNode.i)return 0.18;
+  }
+  if(selLink){
+    if(n!==N[selLink.a]&&n!==N[selLink.b])return 0.18;
+    if(l!==undefined&&l!==selLink)return 0.18;
+  }
+  return 1;
+}
+function step(){
+  const cx=W/2,cy=H/2;
+  for(let i=0;i<N.length;i++){const a=N[i];
+    for(let j=i+1;j<N.length;j++){const b=N[j];
+      let dx=a.x-b.x,dy=a.y-b.y,d2=dx*dx+dy*dy||1,d=Math.sqrt(d2);
+      const f=Math.min(2600/d2,3);
+      dx/=d;dy/=d;a.vx+=dx*f;a.vy+=dy*f;b.vx-=dx*f;b.vy-=dy*f;}
+    a.vx+=(cx-a.x)*0.004;a.vy+=(cy-a.y)*0.004;}
+  L.forEach(e=>{const a=N[e.a],b=N[e.b];
+    let dx=b.x-a.x,dy=b.y-a.y,d=Math.hypot(dx,dy)||1,f=(d-150)*0.012;
+    dx/=d;dy/=d;a.vx+=dx*f;a.vy+=dy*f;b.vx-=dx*f;b.vy-=dy*f;});
+  N.forEach(n=>{if(n===dragNode)return;
+    n.vx*=0.82;n.vy*=0.82;n.x+=n.vx;n.y+=n.vy;
+    n.x=Math.max(60,Math.min(W-60,n.x));n.y=Math.max(45,Math.min(H-45,n.y));});
+}
+function draw(){
+  const p=PAL();
+  ctx.clearRect(0,0,W,H);
+  ctx.save();
+  ctx.translate(view.x,view.y);ctx.scale(view.z,view.z);   /* v12：视口变换 */
+  L.forEach(l=>{
+    const a=N[l.a],b=N[l.b];
+    const da=dimOf(a),db=dimOf(b),al=Math.min(da,db);
+    // v10：薄弱关系改虚线（形态而非颜色）
+    if(l.health<65)ctx.setLineDash([5,4]);else ctx.setLineDash([]);
+    ctx.strokeStyle=l.health<65?("rgba("+p.linkBad+","+(0.8*al)+")"):("rgba("+p.link+","+(0.55*al)+")");
+    ctx.lineWidth=selLink===l?3.5:(l.health<65?1.6:1.8);
+    ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.stroke();
+    ctx.setLineDash([]);
+    if(al>0.5){
+      ctx.globalAlpha=al;ctx.fillStyle=p.label;ctx.font="10px sans-serif";ctx.textAlign="center";
+      ctx.fillText(l.label,(a.x+b.x)/2,(a.y+b.y)/2-4);ctx.globalAlpha=1;
+    }
+  });
+  // v11：当前过滤维度命中的主体集合（每帧重算，开销可忽略）
+  const dimSet=activeDim===null?null:new Set();
+  if(dimSet)(DATA.blockers||[]).forEach((b,k)=>{
+    if(attrMap[k]===activeDim)(b.orgs||[]).forEach(id=>dimSet.add(id));
+  });
+  N.forEach((n,i)=>{
+    n.i=i;const al=dimOf(n);
+    ctx.globalAlpha=al;
+    const c=colorOf(n);
+    const isLow=(n.health||0)<65;
+    const R=n.r||(n.type==="core"?26:n.type==="gov"?23:21);
+    const isSel=selNode===n;
+    // v11：维度过滤命中 → 该维度签名色外环（贯穿「点维度→网络跟着变色」的反馈）
+    const dimHit=activeDim!==null&&dimSet!==null&&dimSet.has(n.id);
+    if(n.type==="core"){
+      // 核心：实心墨圆
+      ctx.beginPath();ctx.arc(n.x,n.y,R,0,7);
+      ctx.fillStyle=p.heavy;ctx.fill();
+      ctx.lineWidth=isSel?4:3;ctx.strokeStyle=p.heavy;ctx.stroke();
+    }else{
+      ctx.beginPath();ctx.arc(n.x,n.y,R,0,7);
+      ctx.fillStyle=p.nodeFill;ctx.fill();
+      // v10：线宽随健康档递增（告警最重）
+      ctx.lineWidth=isSel||hoverNode===n?3.5:(isLow?3.2:(n.type==="gov"?2.6:2.2));
+      ctx.strokeStyle=c;ctx.stroke();
+      if(n.type==="gov"){ // 监管审批：双环（印章质感）
+        ctx.beginPath();ctx.arc(n.x,n.y,R-6,0,7);
+        ctx.lineWidth=1.2;ctx.globalAlpha=al*.75;ctx.stroke();ctx.globalAlpha=al;
+      }
+    }
+    // 健康度外环
+    ctx.beginPath();ctx.arc(n.x,n.y,R+5,-Math.PI/2,-Math.PI/2+Math.PI*2*(n.health||0)/100);
+    ctx.strokeStyle=c;ctx.lineWidth=isLow?3.4:2.2;ctx.globalAlpha=al*0.85;ctx.stroke();ctx.globalAlpha=al;
+    ctx.fillStyle=n.type==="core"?p.nodeTextOn:p.nodeText;
+    ctx.font="600 12px sans-serif";ctx.textAlign="center";
+    ctx.fillText(n.short,n.x,n.y+4);
+    ctx.globalAlpha=1;
+    // v11：维度签名色外环（实线，位于焦点虚线环外侧）
+    if(dimHit){
+      ctx.beginPath();ctx.arc(n.x,n.y,kbNode===n?R+16:R+10,0,7);
+      ctx.setLineDash([]);ctx.lineWidth=2.4;ctx.strokeStyle=dimColorOf(activeDim);
+      ctx.globalAlpha=Math.min(al+.15,1);ctx.stroke();ctx.globalAlpha=1;
+    }
+    if(kbNode===n){ // v4：键盘焦点环（虚线）
+      ctx.beginPath();ctx.arc(n.x,n.y,R+10,0,7);
+      ctx.setLineDash([4,4]);ctx.lineWidth=2;ctx.strokeStyle=p.heavy;
+      ctx.globalAlpha=Math.min(al+.2,1);ctx.stroke();ctx.setLineDash([]);ctx.globalAlpha=1;
+    }
+  });
+  ctx.restore();
+}
+let rafId=null, stillFrames=0;
+/* v6：是否需要继续动画 —— 拖拽中一律为真（v5 曾在拖拽途中误停渲染） */
+function isAnimating(){
+  return !!dragNode||N.some(n=>n!==dragNode&&(Math.abs(n.vx)>0.15||Math.abs(n.vy)>0.15));
+}
+function loop(){
+  step();draw();
+  // v5：节能——节点全部静止且无拖拽时，约 1.5s 后暂停 raf；任一交互 wake() 唤醒
+  const moving=isAnimating();
+  if(moving)stillFrames=0;else stillFrames++;
+  if(!moving&&!dragNode&&stillFrames>90){rafId=null;return;}
+  rafId=requestAnimationFrame(loop);
+}
+function wake(){if(rafId===null||rafId===undefined)rafId=requestAnimationFrame(loop);}
+function buildNet(){
+  cancelAnimationFrame(rafId);
+  resize();
+  N=(DATA.orgs||[]).map((o,i)=>{
+    const a=i/(DATA.orgs.length||1)*Math.PI*2;
+    return {...o,i,x:W/2+Math.cos(a)*130,y:H/2+Math.sin(a)*110,vx:0,vy:0,r:26};
+  });
+  const idx={};N.forEach((n,i)=>idx[n.id]=i);
+  L=(DATA.links||[]).map(([a,b,l,h])=>{
+    const ia=idx[a],ib=idx[b];
+    return (ia!=null&&ib!=null)?{a:ia,b:ib,label:l,health:h}:null;
+  }).filter(Boolean);
+  selNode=null;selLink=null;hoverNode=null;dragNode=null;kbNode=null;
+  buildLegend();   /* v17：图例提取为函数，主题切换时随 refreshThemeArtifacts() 重建 */
+  buildQuickOrgs();
+  loop();
+}
+/* v17：图例（形状=主体类型 · 颜色=健康档；v9：色带三档明确）单独成函数——主题切换时重建 */
+function buildLegend(){
+  const legend=$("legend");
+  const hasLow=(DATA.orgs||[]).some(o=>o.health<65);
+  const hasMid=(DATA.orgs||[]).some(o=>o.health>=65&&o.health<75);
+  const p=PAL();
+  legend.innerHTML=
+    `<span><i class="dot solid" style="background:${p.mid}"></i>实心圆＝核心代建</span>`+
+    `<span><i class="dot ring"></i>双环＝监管审批</span>`+
+    `<span><i class="dot thin"></i>细环＝参建主体</span>`+
+    `<span style="opacity:.75">色带：<i class="dot" style="background:${p.good}"></i>优势≥75 `+
+    (hasMid?`<i class="dot" style="background:${p.mid}"></i>常态65–74 `:"")+
+    (hasLow?`<i class="dot" style="background:${p.bad}"></i>告警&lt;65`:"")+
+    `</span>`;
+}
+/* v17：主题切换时重建所有「生成时按主题取色」的构件——雷达图（中心总分 nodeText / 维度名 muted）、
+ * 图例色带、报告五维图、维度行签名色环、卡点角标内联色（原本只有报告图重建，雷达图在深色下隐形） */
+function refreshThemeArtifacts(){
+  const rb=$("radarBox");
+  if(rb)rb.innerHTML=buildRadarSVG();
+  buildLegend();
+  const chart=document.querySelector("#report .report-chart");
+  if(chart)chart.innerHTML=buildDimChartSVG();   /* v6：报告五维图同步换色 */
+  document.querySelectorAll(".dim-row").forEach(r=>{
+    const di=r.dataset?parseInt(r.dataset.di,10):-1;
+    if(di>=0)r.setAttribute("style","--band-color:"+dimColorOf(di));
+  });
+  document.querySelectorAll(".dim-chip").forEach(c=>{
+    const di=c.dataset?parseInt(c.dataset.di,10):-1;
+    if(di>=0)c.style.color=dimColorOf(di);
+  });
+  /* v18：详情面板同样按当前选中态重绘——维度面板的标题 / 分值签名色、主体面板的健康度数字
+   *      （渲染时按当时主题写死内联色，主题切换后 #detail 曾是全站唯一没换色的构件） */
+  if(activeDim!==null&&DATA.dims&&DATA.dims[activeDim])renderDimDetail(activeDim);
+  else if(selNode)showNode(selNode);
+}
+/* 主体快捷按钮（键盘 / 触屏直达网络节点，v3 无障碍增强） */
+function buildQuickOrgs(){
+  const qo=$("qorgs");
+  if(!qo)return;
+  qo.innerHTML="";
+  (DATA.orgs||[]).forEach(o=>{
+    const b=document.createElement("button");
+    b.type="button";b.className="qorg";b.textContent=o.short;
+    b.dataset.id=o.id;
+    b.setAttribute("aria-label","查看主体详情："+o.name);
+    b.addEventListener("click",()=>{
+      const n=N.find(x=>x.id===o.id);
+      if(n)selectNode(n);
+    });
+    qo.appendChild(b);
+  });
+  updateQuickSel();
+}
+function updateQuickSel(){
+  document.querySelectorAll("#qorgs .qorg").forEach(b=>{
+    b.setAttribute("aria-current",(selNode&&b.dataset.id===selNode.id)?"true":"false");
+  });
+}
+function pos(e){
+  const r=canvas.getBoundingClientRect();
+  const t=(e.changedTouches&&e.changedTouches[0])||(e.touches&&e.touches[0])||e;
+  return [t.clientX-r.left,t.clientY-r.top];
+}
+/* v12：屏幕坐标 → 世界坐标（视口变换） */
+function toWorld(x,y){return [(x-view.x)/view.z,(y-view.y)/view.z];}
+function nodeAt(x,y){return N.find(n=>Math.hypot(n.x-x,n.y-y)<n.r+4)||null;}
+function linkAt(x,y){
+  let hit=null;
+  L.forEach(l=>{const a=N[l.a],b=N[l.b];
+    const dx=b.x-a.x,dy=b.y-a.y,len2=dx*dx+dy*dy||1;
+    let t=((x-a.x)*dx+(y-a.y)*dy)/len2;t=Math.max(0,Math.min(1,t));
+    const px=a.x+t*dx,py=a.y+t*dy;
+    if(Math.hypot(px-x,py-y)<8)hit=l;});
+  return hit;
+}
+/* v5：hover 气泡 */
+const tip=$("netTip");
+function showTip(n,x,y){
+  if(!tip)return;
+  if(!n){
+    tip.style.display="none";
+    tip.setAttribute("aria-hidden","true");
+    return;
+  }
+  tip.innerHTML=`<b>${esc(n.short)}</b> <span class="tv">${esc(n.name)}</span><br>`+
+    `<span class="tv">健康度</span> <span class="th" style="color:${colorOf(n)}">${n.health}</span> <span class="tv">${esc(gradeOf(n.health))}</span><br>`+
+    `<span class="tv">卡点</span> ${esc(n.block||"—")}`;
+  tip.style.display="block";
+  tip.setAttribute("aria-hidden","false");
+  const tw=tip.offsetWidth||240, th=tip.offsetHeight||70;
+  let lx=x+14, ly=y+14;
+  if(lx+tw>W)lx=Math.max(4,x-tw-14);
+  if(ly+th>H)ly=Math.max(4,y-th-14);
+  tip.style.left=lx+"px";
+  tip.style.top=ly+"px";
+}
+function pointerDown(e){
+  const [x,y]=pos(e);mx0=x;my0=y;moved=false;panMoved=false;lx=x;ly=y;
+  showTip(null); // 触屏开始时隐藏气泡
+  const [wx,wy]=toWorld(x,y);
+  dragNode=nodeAt(wx,wy);
+  panning=!dragNode;  // v12：非节点处按下 = 平移
+  wake();
+  if(dragNode||panning)e.preventDefault();
+}
+function pointerMove(e){
+  const [x,y]=pos(e);
+  if(dragNode&&(Math.abs(x-mx0)>4||Math.abs(y-my0)>4))moved=true;
+  if(dragNode&&moved){
+    const [wx,wy]=toWorld(x,y);
+    dragNode.x=Math.max(40,Math.min(W-40,wx));
+    dragNode.y=Math.max(35,Math.min(H-35,wy));
+    dragNode.vx=dragNode.vy=0;
+    e.preventDefault();return;
+  }
+  if(panning){  // v12：跟手平移
+    view.x+=x-lx;view.y+=y-ly;lx=x;ly=y;
+    if(Math.abs(x-mx0)>4||Math.abs(y-my0)>4)panMoved=true;
+    e.preventDefault();return;
+  }
+  if(!dragNode){
+    const was=hoverNode;
+    const [wx,wy]=toWorld(x,y);
+    hoverNode=nodeAt(wx,wy);
+    canvas.style.cursor=hoverNode?"pointer":"grab";
+    if(hoverNode!==was||hoverNode)showTip(hoverNode,x,y);
+    if(!hoverNode)showTip(null);
+  }
+}
+function selectNode(n){
+  selNode=n;selLink=null;activeBlocker=null;activePhase=null;
+  clearBlkSel();clearTlSel();clearDimSel();clearBlkSearch();updateQuickSel();   /* v24：选主体时清搜索框并重跑；v25（中①）：补回 updateQuickSel——v7 大改引入 clearDimSel() 时把 v3/v4 老口径挤掉，快捷按钮选中态丢了 18 版 */
+  showNode(n);
+  wake();
+}
+function selectLink(l){
+  selLink=l;selNode=null;activeBlocker=null;activePhase=null;
+  clearBlkSel();clearTlSel();clearDimSel();clearBlkSearch();updateQuickSel();
+  /* v25（中②）：与 selectNode / pickDim / pickPhase / 卡点点击四个入口同一口径——点关系线 / 风险速览
+     「最薄弱关系」也清搜索框并重跑（v24 修搜索与归因互斥时独漏此入口）；v25（中①）：updateQuickSel 补回 */
+  showLink(l);
+  wake();
+}
+function jumpToBlocker(i){
+  const el=document.querySelector('.blk[data-bi="'+i+'"]');   /* v12：按数据下标精确定位 */
+  if(!el)return;
+  /* v22（轻）：目标正被搜索条件 display:none 藏着时，focus / scrollIntoView 都是空操作——
+     「直达分诊」的滚动与高亮全部落空、页面一动不动；先清搜索把目标显出来再跳转 */
+  if(el.style&&el.style.display==="none"){
+    const inp=$("blkSearch");
+    if(inp&&inp.value){inp.value="";runBlkSearch();}
+  }
+  if(!el.classList.contains("open"))el.click();
+  el.focus({preventScroll:true});
+  smoothScroll(el,"center");
+}
+function pointerUp(e){
+  const [x,y]=pos(e);
+  if(dragNode&&!moved){
+    selectNode(dragNode);
+  }else if(!dragNode&&!panMoved){   // v12：未发生平移时才按「点空白」处理
+    const [wx,wy]=toWorld(x,y);
+    const hit=linkAt(wx,wy);
+    if(hit)selectLink(hit);
+    else{
+      selNode=null;selLink=null;updateQuickSel();
+      /* v22（轻）：过滤 / 卡点联动还在生效时，netHint 与详情面板是它们的说明——原实现空白一点就
+         收掉提示条，画布 / 卡点仍灰着却无人解释；无任何过滤器时保持 v17 的复位行为 */
+      if(activeDim===null&&activePhase===null&&activeBlocker===null){
+        detail.innerHTML=`<h3>诊断详情</h3><div class="empty">点击总览五维、时间轴阶段、网络中的主体或关系、或下方卡点，在此查看结构化诊断。</div>`;
+        $("netHint").classList.remove("show");
+      }
+    }
+  }
+  dragNode=null;panning=false;
+  showTip(null);
+}
+canvas.addEventListener("mousedown",pointerDown);
+canvas.addEventListener("mousemove",pointerMove);
+canvas.addEventListener("mouseup",pointerUp);
+canvas.addEventListener("mouseleave",()=>{hoverNode=null;showTip(null);panning=false;});
+canvas.addEventListener("touchstart",pointerDown,{passive:false});
+canvas.addEventListener("touchmove",pointerMove,{passive:false});
+canvas.addEventListener("touchend",pointerUp,{passive:false});
+canvas.addEventListener("touchcancel",()=>{dragNode=null;panning=false;});
+/* v12：滚轮缩放（以光标为锚点） */
+canvas.addEventListener("wheel",e=>{
+  e.preventDefault();
+  const [sx,sy]=pos(e);
+  const [wx,wy]=toWorld(sx,sy);
+  view.z=Math.max(0.5,Math.min(2.5,view.z*(e.deltaY<0?1.12:1/1.12)));
+  view.x=sx-wx*view.z;view.y=sy-wy*view.z;
+  wake();
+},{passive:false});
+/* v4：键盘导航 —— 方向键移动焦点、Enter/Space 选中、Esc 清空 */
+canvas.addEventListener("keydown",e=>{
+  const k=e.key;
+  /* v12/v13：+/- 缩放、0 复位（与工具条按钮共用 zoomBy / resetView） */
+  if(k==="0"||k==="="||k==="+"||k==="-"){
+    e.preventDefault();
+    if(k==="0")resetView();else zoomBy(k==="-"?1/1.15:1.15);
+    wake();return;
+  }
+  if(k==="Enter"||k===" "){
+    if(kbNode){e.preventDefault();selectNode(kbNode);wake();}
+    return;
+  }
+  if(k==="Escape"){
+    e.preventDefault();
+    kbNode=null;selNode=null;selLink=null;updateQuickSel();
+    if(activeDim!==null)pickDim(activeDim);   /* v14：Esc 连维度过滤一起清掉 */
+    activeBlocker=null;clearBlkSel();   /* v15：Esc 也清掉卡点选中/展开态 */
+    detail.innerHTML=`<h3>诊断详情</h3><div class="empty">点击总览五维、时间轴阶段、网络中的主体或关系、或下方卡点，在此查看结构化诊断。</div>`;
+    $("netHint").classList.remove("show");
+    wake();
+    return;
+  }
+  const dirs={ArrowUp:[0,-1],ArrowDown:[0,1],ArrowLeft:[-1,0],ArrowRight:[1,0]};
+  const d=dirs[k];
+  if(!d)return;
+  e.preventDefault();
+  const pool=N.filter(n=>n!==kbNode);
+  if(!pool.length)return;
+  const [dx,dy]=d;
+  const ox=kbNode?kbNode.x:W/2, oy=kbNode?kbNode.y:H/2;
+  let best=null,bestScore=-Infinity;
+  pool.forEach(n=>{
+    const vx=n.x-ox, vy=n.y-oy;
+    const along=vx*dx+vy*dy; // 沿方向投影
+    if(along<=0)return;      // 只选该方向上的节点
+    const perp=Math.abs(vx*dy-vy*dx); // 垂直距离
+    const score=along-perp*1.2;
+    if(score>bestScore){bestScore=score;best=n;}
+  });
+  if(best)kbNode=best;
+  wake();
+});
+
+/* v5：卡点搜索（含命中主体时高亮快捷按钮） */
+function bindBlkSearch(){
+  const inp=$("blkSearch");
+  if(!inp)return;
+  inp.addEventListener("input",runBlkSearch);
+}
+/* v22：过滤逻辑抽离为 runBlkSearch——输入事件 / beforeprint 打印清搜索 / jumpToBlocker
+ * 目标被搜索隐藏三处共用同一套收尾（display 恢复 / 分组头显隐 / 空态 / 快捷按钮 match） */
+function runBlkSearch(){
+  const inp=$("blkSearch"), cnt=$("blkCount");
+  if(!inp)return;
+    const q=inp.value.trim().toLowerCase();
+    /* v19：搜索与维度归因互斥——有输入时清掉维度过滤，否则半透明 dim-fade 叠在搜索结果上
+     * v20：改走 pickDim 关闭分支同一套收尾——原只 clearDimSel() 清按下态 / dim-fade，
+     *     画布已无高亮环，但 netHint 仍宣称「高亮 N 个关联主体」、详情面板仍停在「维度诊断」 */
+    if(q&&activeDim!==null){fromBlkSearch=true;try{pickDim(activeDim);}finally{fromBlkSearch=false;}}
+    const blks=document.querySelectorAll(".blk");
+    let shown=0;
+    blks.forEach(el=>{
+      const b=(DATA.blockers||[])[+el.dataset.bi];   /* v12：修复 DOM 分组序号 ≠ 数据下标 */
+      if(!b){el.style.display="";return;}
+      const orgNames=(b.orgs||[]).map(id=>{
+        const o=(DATA.orgs||[]).find(x=>x.id===id);
+        return o?(o.name+" "+o.short):id;
+      }).join(" ");
+      const hay=(b.t+" "+b.d+" "+b.ev+" "+b.fix+" "+(b.sev||"")+" "+orgNames).toLowerCase();
+      const hit=!q||hay.includes(q);
+      el.style.display=hit?"":"none";
+      if(hit)shown++;
+    });
+    if(cnt)cnt.textContent=q?("命中 "+shown+" / "+blks.length+" 项"):"";
+    /* v14：搜索激活时隐藏没有命中的分组组头 */
+    document.querySelectorAll("#blks .triage").forEach(grp=>{
+      const anyVisible=[...grp.querySelectorAll(".blk")].some(x=>x.style.display!=="none");
+      grp.style.display=anyVisible?"":"none";
+    });
+    /* v14：搜索空态 + 推荐词取自当前场景真实数据（保证能搜到） */
+    const host=$("blks");
+    let emptyEl=$("blkEmpty");
+    if(q&&shown===0&&host){
+      if(!emptyEl){emptyEl=document.createElement("div");emptyEl.id="blkEmpty";emptyEl.className="blk-empty";}
+      const rec=(DATA.blockers||[]).slice(0,3).map(b=>(b.t||"").trim()).filter(s=>s).join(" / ")||"审批";   /* v23（轻）：推荐词取卡点完整标题（保证能搜到的整词），不再硬切四字剩半句 */
+      emptyEl.textContent="未命中卡点「"+inp.value.trim()+"」。试试："+rec;
+      host.insertBefore(emptyEl,host.firstChild);   /* v14：置顶，不用翻到分组底部才看到 */
+    }else if(emptyEl){emptyEl.remove();}
+    document.querySelectorAll("#qorgs .qorg").forEach(qb=>{
+      const o=(DATA.orgs||[]).find(x=>x.id===qb.dataset.id);
+      const nameHit=!!(q&&o&&((o.name+" "+o.short+" "+(o.block||"")+" "+(o.role||"")).toLowerCase().includes(q)));
+      qb.classList.toggle("match",nameHit);
+    });
+}
+/* v24（中）：搜索与归因互斥的另一半——任一过滤选择（维度 / 阶段 / 主体 / 卡点）触发时
+ * 清空搜索框并重跑，与「输入时清维度」的 v19 路径对称；fromBlkSearch 标记搜索输入路径
+ * 发起的互斥清维度调用，该路径上 pickDim 不反清搜索框（否则用户正输入的字被自身抹掉） */
+let fromBlkSearch=false;
+function clearBlkSearch(){
+  const inp=$("blkSearch");
+  if(inp&&inp.value){inp.value="";runBlkSearch();}
+}
+function clearBlkSel(){
+  document.querySelectorAll(".blk").forEach(x=>{
+    x.classList.remove("sel","open");
+    x.setAttribute("aria-expanded","false");
+  });
+}
+function clearTlSel(){
+  tl.querySelectorAll(".tl-m").forEach(d=>{d.classList.remove("sel");d.setAttribute("aria-pressed","false");});
+}
+function showNode(n){
+  const tags=(n.tags||[]).map(t=>`<span class="tag ${n.type==="gov"?"gov":"mode"}">${esc(t)}</span>`).join("");
+  const myPh=(DATA.phases||[]).map((p,i)=>({p,i})).filter(x=>(n.phases||[]).includes(x.i));
+  const myBlk=(DATA.blockers||[]).map((b,i)=>({b,i})).filter(x=>(x.b.orgs||[]).includes(n.id));
+  /* v12：复查快照 —— 该主体的健康度趋势 */
+  const prevH=(DATA.prev&&DATA.prev.orgs&&DATA.prev.orgs[n.id]!=null)?DATA.prev.orgs[n.id]:null;
+  const trend=(prevH!=null)?(n.health-prevH):null;
+  const trendHtml=trend===null?"":' <span style="font-size:12px;color:'+
+    (trend>0?"var(--band-good)":trend<0?"var(--alert)":"var(--muted)")+'">较上次 '+
+    (trend>0?"+"+trend:trend===0?"持平":trend)+"</span>";
+  /* v12：上下游（按 links 方向） */
+  const relBtn=id=>{
+    const o=(N||[]).find(q=>q.id===id);
+    return o?`<button type="button" class="tag" data-org="${esc(id)}">${esc(o.short)}</button>`:null;
+  };
+  const upHtml=(DATA.links||[]).filter(l=>l[1]===n.id).map(l=>relBtn(l[0])).filter(Boolean).join("")||'<span class="tag">—</span>';
+  const downHtml=(DATA.links||[]).filter(l=>l[0]===n.id).map(l=>relBtn(l[1])).filter(Boolean).join("")||'<span class="tag">—</span>';
+  const phHtml=myPh.length
+    ?myPh.map(x=>`<button type="button" class="tag" data-ph="${x.i}">${esc(x.p.label)}</button>`).join("")
+    :'<span class="tag">—</span>';
+  const blHtml=myBlk.length
+    ?myBlk.map(x=>`<button type="button" class="tag" data-blk="${x.i}">${esc(x.b.t)}</button>`).join("")
+    :'<span class="tag">—</span>';
+  detail.innerHTML=`<h3>${esc(n.name)}</h3>
+    <div class="row"><span class="k">协同健康度</span><b style="color:${colorOf(n)}">${n.health}</b>${trendHtml}</div>
+    <div class="row"><span class="k">角色</span>${esc(n.role)}</div>
+    <div class="row"><span class="k">权责边界</span>${esc(n.power)}</div>
+    <div class="row"><span class="k">典型协同动作</span>${esc(n.act)}</div>
+    <div class="row"><span class="k">主要卡点</span>${esc(n.block)}</div>
+    <div class="row"><span class="k">上游（为其输入）</span>${upHtml}</div>
+    <div class="row"><span class="k">下游（其输出到）</span>${downHtml}</div>
+    <div class="row"><span class="k">参与阶段</span>${phHtml}</div>
+    <div class="row"><span class="k">涉及卡点</span>${blHtml}</div>
+    <div class="row"><span class="k">标签</span>${tags||'<span class="tag">—</span>'}</div>`;
+  detail.querySelectorAll("button.tag[data-ph]").forEach(b=>{
+    b.addEventListener("click",()=>pickPhase(+b.dataset.ph));
+  });
+  detail.querySelectorAll("button.tag[data-blk]").forEach(b=>{
+    b.addEventListener("click",()=>jumpToBlocker(+b.dataset.blk));
+  });
+  detail.querySelectorAll("button.tag[data-org]").forEach(b=>{
+    b.addEventListener("click",()=>{const o=(N||[]).find(q=>q.id===b.dataset.org);if(o)selectNode(o);});
+  });
+  $("netHint").classList.remove("show");
+}
+function showLink(l){
+  const a=N[l.a],b=N[l.b];
+  detail.innerHTML=`<h3>协同关系 · ${esc(a.short)} ↔ ${esc(b.short)}</h3>
+    <div class="row"><span class="k">关系健康度</span><b style="color:${l.health<65?"var(--band-bad)":"var(--band-mid)"}">${l.health}</b></div>
+    <div class="row"><span class="k">协同内容</span>${esc(l.label)}</div>
+    <div class="row"><span class="k">诊断</span>${l.health<65?"该关系为当前协同薄弱环节，建议纳入近期整改清单。":l.health>=79?"该关系运行平稳，可总结经验形成标准动作。":"该关系运行尚稳，但未达标杆线（≥79），暂不作为标准动作沉淀。"}</div>`;   /* v16：与报告「协同亮点」≥79 门槛统一 */
+  $("netHint").classList.remove("show");
+}
+
+/* ================= 卡点（v7：按风险分诊 + 维度归因角标） ================= */
+const SEV_ORDER=["高","中","低"];
+const SEV_LABEL={高:"重点干预",中:"观察跟进",低:"常规优化"};
+function buildBlockers(){
+  const blks=$("blks");
+  blks.innerHTML="";
+  SEV_ORDER.forEach(sev=>{
+    const items=(DATA.blockers||[]).map((b,i)=>({b,i})).filter(x=>x.b.sev===sev);
+    if(!items.length)return;
+    const grp=document.createElement("div");
+    grp.className="triage t-"+(sev==="高"?"hi":sev==="中"?"mid":"low");
+    grp.innerHTML=`<div class="triage-h"><span class="tn">${sev==="高"?"!":sev==="中"?"●":"✓"}</span>${SEV_LABEL[sev]}<span class="cnt">${items.length} 项</span></div>`;   /* v17：中风险徽章改「●」，与 !/✓ 同一符号体系，不再残留数字序号「2」 */
+    items.forEach(({b,i})=>{
+      grp.appendChild(buildBlockerEl(b,i));
+    });
+    blks.appendChild(grp);
+  });
+}
+function buildBlockerEl(b,i){
+    const d=document.createElement("div");d.className="blk";
+    d.setAttribute("tabindex","0");
+    /* v14：去掉 role="button"/aria-expanded —— 卡片内嵌真按钮（归因 chip），
+       外层 role=button 会让读屏报「按钮里有按钮」；卡片本身保留 tabindex+键盘展开 */
+    d.setAttribute("aria-label",esc(b.t)+"，"+esc(b.sev)+"风险，点击展开详情");
+    d.setAttribute("data-bi",String(i));   /* v12：数据下标（DOM 按严重度分组，序号与下标不一致） */
+    const names=(b.orgs||[]).map(id=>{
+      const o=(DATA.orgs||[]).find(x=>x.id===id);
+      return o?o.short:id;
+    });
+    // v7：维度归因角标
+    const dimIdx=attrMap[i];
+    const chipHtml=(dimIdx!=null&&dimIdx>=0&&DATA.dims[dimIdx])
+      ?`<button class="dim-chip" type="button" data-di="${dimIdx}" style="color:${dimColorOf(dimIdx)}" title="按「${esc(DATA.dims[dimIdx].n)}」过滤关联卡点" aria-label="归因维度：${esc(DATA.dims[dimIdx].n)}，点击过滤">${esc(DATA.dims[dimIdx].n)}</button>`:"";
+    d.innerHTML=`<div class="bt"><span class="sev ${esc(b.sev)}">${esc(b.sev)}风险</span>${esc(b.t)}${chipHtml}</div>
+      <div class="bd">${esc(b.d)}</div>
+      <div class="more">
+        <div><b>证据：</b>${esc(b.ev)}</div>
+        <div style="margin-top:4px"><b>处方：</b>${esc(b.fix)}</div>
+        <div style="margin-top:4px"><b>涉及主体：</b>${esc(names.join(" / ")||"—")}</div>
+      </div>`;
+    const toggle=()=>{
+      const wasOpen=d.classList.contains("open");
+      clearBlkSel();clearBlkSearch(); // 手风琴：同时只展开一个，并清理其它选中态（v24：含搜索过滤）
+      const open=!wasOpen;
+      d.classList.toggle("open",open);
+      d.setAttribute("aria-expanded",open?"true":"false");
+      if(open){
+        d.classList.add("sel");
+        activeBlocker=i;activePhase=null;clearTlSel();
+        selNode=null;selLink=null;updateQuickSel();clearDimSel();
+        const hitIds=new Set(b.orgs||[]);
+        const names2=(DATA.orgs||[]).filter(o=>hitIds.has(o.id)).map(o=>o.short);
+        detail.innerHTML=`<h3>卡点归因 · ${esc(b.t)}</h3>
+          <div class="row"><span class="k">严重程度</span><span class="sev ${esc(b.sev)}">${esc(b.sev)}风险</span></div>
+          <div class="row"><span class="k">表现</span>${esc(b.d)}</div>
+          <div class="row"><span class="k">证据</span>${esc(b.ev)}</div>
+          <div class="row"><span class="k">处方</span>${esc(b.fix)}</div>
+          <div class="row"><span class="k">涉及主体</span>${esc(names2.join("、")||"—")}</div>`;
+        $("netHint").classList.add("show");
+        $("netHint").textContent="卡点联动：「"+b.t+"」高亮涉及主体："+names2.join("、");
+      }else{
+        activeBlocker=null;
+        $("netHint").classList.remove("show");
+        /* v25（轻③）：收起卡点时把详情面板一并复位为初始引导文案——与 pickDim / pickPhase
+           关闭分支同一句；原关闭分支只清 activeBlocker + 藏提示条，诊断抽屉赖着上一条卡点归因
+           （v17 已为「点画布空白残留上一条诊断」修过同源毛病，主动收卡点这条漏到现在） */
+        detail.innerHTML=`<h3>诊断详情</h3><div class="empty">点击总览五维、时间轴阶段、网络中的主体或关系、或下方卡点，在此查看结构化诊断。</div>`;
+      }
+      wake();
+    };
+    d.addEventListener("click",toggle);
+    /* v12：Enter/Space 展开；上下方向键在卡点间移动焦点 */
+    d.addEventListener("keydown",e=>{
+      /* v15：焦点在内部按钮（归因角标）上时不拦截 —— 让按钮本机的 Enter/Space 触发点击，
+         否则父级 preventDefault 会吞掉子按钮的默认动作并反过来折叠卡片 */
+      if(e.target&&e.target!==d&&e.target.tagName==="BUTTON"&&
+         (e.key==="Enter"||e.key===" "||e.key==="ArrowDown"||e.key==="ArrowUp"))return;
+      if(e.key==="Enter"||e.key===" "){e.preventDefault();toggle();return;}
+      if(e.key==="ArrowDown"||e.key==="ArrowUp"){
+        e.preventDefault();
+        const all=[...document.querySelectorAll(".blk")].filter(x=>x.style.display!=="none");
+        const idx=all.indexOf(d);
+        const t=all[idx+(e.key==="ArrowDown"?1:-1)];
+        if(t){
+          t.focus({preventScroll:true});
+          t.scrollIntoView({behavior:prefersReduced?"auto":"smooth",block:"nearest"});
+        }
+      }
+    });
+    // v7：维度角标触发维度过滤
+    const chip=d.querySelector(".dim-chip");
+    if(chip)chip.addEventListener("click",e=>{e.stopPropagation();pickDim(attrMap[i]);});
+    return d;
+}
+
+/* ================= 数据导入 / 导出 ================= */
+function buildDataPanel(){
+  // 控制台注入到页脚上方（独立卡片）
+  const wrap=document.querySelector(".wrap > div");
+  const card=document.createElement("div");
+  card.className="card data-card";
+  card.innerHTML=`
+    <details>
+      <summary>数据导入 / 导出（点击展开）</summary>
+      <div class="hint">将脱敏案卷交给 Atria-Dawn 抽取为下列 JSON 后导入，页面自动按新数据重排；也可导出当前数据备份或二次编辑</div>
+      <div class="io-row">
+        <button class="io-btn alt" id="impBtn">导入 JSON</button>
+        <button class="io-btn" id="expBtn">导出 JSON</button>
+        <button class="io-btn alt" id="editBtn">查看 / 编辑当前数据</button>
+        <button class="io-btn" id="resetBtn">恢复示例数据</button>
+      </div>
+      <input type="file" id="fileIn" accept="application/json,.json" style="display:none"/>
+      <div class="io-msg" id="ioMsg"></div>
+      <div class="io-diff" id="ioDiff"></div>
+      <textarea class="io-edit" id="ioEdit" spellcheck="false" aria-label="数据 JSON 编辑区"></textarea>
+    </details>`;
+  wrap.appendChild(card);
+  const msg=$("ioMsg"),edit=$("ioEdit");
+  const say=(t,ok)=>{msg.textContent=t;msg.className="io-msg "+(ok?"ok":"err");};
+  $("impBtn").onclick=()=>$("fileIn").click();
+  $("fileIn").onchange=e=>{
+    const f=e.target.files&&e.target.files[0];
+    if(!f)return;
+    const rd=new FileReader();
+    rd.onload=()=>{
+      try{
+        const d=JSON.parse(rd.result);
+        const err=validateData(d);
+        if(err){say("导入失败："+err,false);return;}
+        showImportDiff(d); // v4：先预览与当前数据的差异，再确认应用
+      }catch(err){
+        say("导入失败：JSON 解析错误 — "+err.message,false);
+      }
+    };
+    rd.onerror=()=>say("导入失败：文件读取错误",false);
+    rd.readAsText(f,"UTF-8");
+    e.target.value="";
+  };
+  $("expBtn").onclick=()=>{
+    const blob=new Blob([JSON.stringify(DATA,null,2)],{type:"application/json;charset=utf-8"});
+    const a=document.createElement("a");
+    a.href=URL.createObjectURL(blob);
+    a.download="协同体检中心-数据.json";
+    document.body.appendChild(a);a.click();a.remove();
+    setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+    say("已导出当前数据为 JSON",true);
+  };
+  $("editBtn").onclick=()=>{
+    if(edit.classList.contains("show")){
+      /* v23（轻）：文本与打开时的快照一致 = 只是看了看——只收起，不重载数据、不报「已应用」、
+         不取消场景预设高亮（原二态切换把收起也走成完整应用路径） */
+      if(edit._snap!=null&&edit.value===edit._snap){
+        edit.classList.remove("show");
+        say("数据未改动，已收起编辑框",true);
+        return;
+      }
+      try{
+        const d=JSON.parse(edit.value);
+        const err=validateData(d);
+        if(err){say("应用失败："+err,false);return;}
+        curScene=-1;buildSceneBtns();   /* v14：与文件导入路径一致 —— 编辑后属自定义数据，取消预设高亮 */
+        loadData(d);
+        edit.classList.remove("show");
+        say("已应用编辑后的数据（当前为自定义数据，不再属于任何预设）",true);
+      }catch(err){say("应用失败：JSON 解析错误 — "+err.message,false);}
+    }else{
+      edit.value=JSON.stringify(DATA,null,2);
+      edit._snap=edit.value;   /* v23：记录打开时快照，收起时据此区分「看了看」与「编辑过」 */
+      edit.classList.add("show");
+      say("编辑后点击同一按钮可应用；也可整体复制走",true);
+    }
+  };
+  $("resetBtn").onclick=()=>{
+    curScene=0;
+    loadData(clone(DEFAULT_DATA));
+    buildSceneBtns();
+    edit.classList.remove("show");
+    say("已恢复为示例数据",true);
+  };
+}
+/* v4：导入 diff 预览；v23（中）：预览盒子改挂独立容器 #ioDiff——#ioMsg 同时是导出 / 切场景 / PNG /
+   恢复示例等所有反馈的输出位，textContent 覆盖会把待决策的预览连同两个确认按钮一起销毁、
+   pendingImport 悬空。挂 #ioDiff 后普通反馈写 #ioMsg 不再动它，应用 / 放弃由 clearDiff() 主动清 */
+let pendingImport=null;
+function showImportDiff(d){
+  pendingImport=d;
+  const host=$("ioDiff")||$("ioMsg");
+  const msg=$("ioMsg");
+  if(!host||!msg)return;
+  const clearDiff=()=>{host.innerHTML="";};
+  const cur=DATA;
+  const num=x=>(x||[]).length;
+  const hi=arr=>(arr||[]).filter(b=>b.sev==="高").length;
+  const dt=clampScore(d.total)-clampScore(cur.total);
+  const name=(d.meta&&d.meta.project)||"新数据";
+  msg.className="io-msg ok";
+  msg.textContent="";
+  host.innerHTML="";
+  const box=document.createElement("div");
+  box.className="diff-box";
+  const list=document.createElement("div");
+  list.className="diff-list";
+  list.textContent=
+    "主体 "+num(cur.orgs)+" → "+num(d.orgs)+" ｜ "+
+    "关系 "+num(cur.links)+" → "+num(d.links)+" ｜ "+
+    "卡点 "+num(cur.blockers)+" → "+num(d.blockers)+"（高风险 "+hi(cur.blockers)+" → "+hi(d.blockers)+"）｜ "+
+    "总分 "+clampScore(cur.total)+" → "+clampScore(d.total)+"（"+(dt>0?"+":"")+dt+"）";
+  box.innerHTML="<b>导入预览</b>："+esc(name);
+  box.appendChild(list);
+  const acts=document.createElement("div");
+  acts.className="diff-acts";
+  const ap=document.createElement("button");
+  ap.type="button";ap.className="io-btn alt";ap.textContent="应用导入";
+  const cx=document.createElement("button");
+  cx.type="button";cx.className="io-btn";cx.textContent="放弃";
+  ap.onclick=()=>{
+    pendingImport=null;
+    clearDiff();
+    loadData(d);
+    curScene=-1;buildSceneBtns(); // 导入的是自定义数据，不属于任何预设
+    sayTo("已导入「"+(d.meta&&d.meta.project||"新数据")+"】，页面已按新数据刷新",true);   /* v18：清掉「重渲染」开发口径 */
+  };
+  cx.onclick=()=>{pendingImport=null;clearDiff();sayTo("已放弃导入","info");};
+  acts.appendChild(ap);acts.appendChild(cx);
+  box.appendChild(acts);
+  host.appendChild(box);
+}
+function validateData(d){
+  if(!d||typeof d!=="object")return "根节点必须是对象";
+  if(!Array.isArray(d.orgs)||!d.orgs.length)return "缺少 orgs 数组";
+  if(!Array.isArray(d.links))return "缺少 links 数组";
+  if(!Array.isArray(d.phases)||!d.phases.length)return "缺少 phases 数组";
+  if(!Array.isArray(d.blockers))return "缺少 blockers 数组";
+  if(!Array.isArray(d.dims))return "缺少 dims 数组";
+  const ids=new Set(d.orgs.map(o=>o.id));
+  for(const o of d.orgs){
+    if(typeof o.id!=="string"||!o.id)return "主体缺少 id";
+    if(typeof o.name!=="string"||!o.name)return "主体「"+o.id+"」缺少 name";
+    if(typeof o.health!=="number")return "主体「"+o.id+"」health 必须为数值";
+    if(!Array.isArray(o.phases))return "主体「"+o.id+"」phases 必须为数组";
+    // v6：阶段下标必须在当前数据的阶段范围内
+    for(const pi of o.phases){
+      if(!Number.isInteger(pi)||pi<0||pi>=d.phases.length)
+        return "主体「"+o.id+"」的阶段下标越界："+pi+"（合法范围 0–"+(d.phases.length-1)+"）";
+    }
+  }
+  for(const l of d.links){
+    if(!Array.isArray(l)||l.length<4)return "links 每项为 [a,b,label,health] 四元组";
+    if(!ids.has(l[0])||!ids.has(l[1]))return "关系引用了不存在的主体："+l[0]+" / "+l[1];
+    if(l[0]===l[1])return "关系两端不能是同一主体："+l[0];
+    if(typeof l[3]!=="number")return "关系健康度必须为数值";
+  }
+  for(const p of d.phases){
+    if(typeof p.label!=="string"||!p.label)return "阶段缺少 label";
+  }
+  for(const b of d.blockers){
+    if(typeof b.t!=="string"||!b.t)return "卡点缺少标题 t";
+    if(typeof b.sev!=="string"||!["高","中","低"].includes(b.sev))return "卡点「"+b.t+"」sev 只能为 高 / 中 / 低";
+    if(!Array.isArray(b.orgs))return "卡点「"+b.t+"」orgs 必须为 id 数组";
+    for(const id of b.orgs)if(!ids.has(id))return "卡点「"+b.t+"」引用了不存在的主体："+id;
+  }
+  for(const dm of d.dims){
+    if(typeof dm.n!=="string"||typeof dm.v!=="number")return "维度需要 {n, v} 且 v 为数值";
+  }
+  return null;
+}
+
+/* ================= 复盘报告生成（v7 报告单排版） ================= */
+let reportTimer=null,reportText="",typingDone=false;
+function buildReportLines(){
+  const d=DATA;
+  const dims=(d.dims||[]).map(x=>x.n+"（"+x.v+"）").join("、");
+  const highs=(d.blockers||[]).filter(b=>b.sev==="高").map(b=>b.t);
+  const lows=(d.orgs||[]).filter(o=>o.health<65).map(o=>o.name);
+  const no=(typeof buildReportNo==="function")?buildReportNo():"ATRIA-"+((d.meta&&d.meta.date)||"2026");
+  const lines=[
+    "一、总检结论\n\n协同健康度 "+(d.total||0)+" 分（"+gradePlain(d.total||0)+"）。\n\n"+buildConclusion(),
+    "二、五维评分\n\n"+dims+"。",
+    "三、卡点分诊\n\n识别出 "+(d.blockers||[]).length+" 类协同卡点，其中高风险 "+highs.length+" 项："+(highs.join("、")||"无")+"。健康度偏低的主体："+(lows.join("、")||"无")+"。",
+    "四、干预处方\n\n" + (()=>{   /* v18：无高风险卡点时兜底，不再只输出一个句号 */
+      const hs=(d.blockers||[]).filter(b=>b.sev==="高");
+      return hs.length
+        ? hs.map((b,i)=>"（"+(i+1)+"）"+b.t+"："+b.fix).join("；")
+        : "当前无高风险卡点，维持既有协同机制即可";
+    })() + "。",
+    "五、协同亮点\n\n" + (()=>{   /* v15：无达标关系时不再输出缺主语的空话 */
+        const good=(d.links||[]).filter(l=>l.health>=79)
+          .map(l=>{const a=(N[l.a]||{}).short||l.a,b2=(N[l.b]||{}).short||l.b;return a+" ↔ "+b2+"（"+l.health+"）";});
+        return good.length
+          ? good.join("、") + " 等关系运行平稳，可作为标准动作沉淀复用"
+          : "当前无运行平稳的标杆关系（健康度 ≥79），四节处方里的高频薄弱环节应优先专项整改";
+      })() + "。",
+    "六、30 天干预时间线\n\n" + (()=>{   /* v18：卡点为空时说明本月无排期事项，不留冒号开头的半句 */
+      const list=(d.blockers||[]).slice().sort((a,b)=>SEV_ORDER.indexOf(a.sev)-SEV_ORDER.indexOf(b.sev))
+        .map(b=>"· "+({高:"D1–D7",中:"D8–D21",低:"D22–D30"}[b.sev]||"D8–D21")+
+          "（"+b.sev+"）"+b.t+"："+b.fix)
+        .join("\n");
+      return list
+        ? "按严重度排期，高风险先行、低风险收尾，月末统一复查验收：\n"+list
+        : "当前无卡点需要排期，本月无干预事项，保持既有协同节奏并按月复查即可";
+    })() + "。",   /* v19：节尾补句号，与四 / 五节一致（兜底句作「……即可。」收尾） */
+    "七、按主体整改清单\n\n" + (()=>{   /* v18：无卡点可认领时说明，不留冒号开头的半句 */
+      const byOrg={};
+      (d.blockers||[]).forEach(b=>(b.orgs||[]).forEach(id=>{(byOrg[id]=byOrg[id]||[]).push(b);}));
+      const rows=(d.orgs||[]).filter(o=>byOrg[o.id]&&byOrg[o.id].length).map(o=>
+        "· "+o.short+"（"+o.name+"）：\n"+
+        byOrg[o.id].sort((a,b)=>SEV_ORDER.indexOf(a.sev)-SEV_ORDER.indexOf(b.sev))
+          .map(x=>"　– "+x.t+"（"+x.sev+"）："+x.fix).join("\n")
+      ).join("\n");
+      return rows
+        ? "各主体认领本项目的协同整改事项：\n"+rows
+        : "当前无卡点需主体认领整改，各主体维持既有协同职责即可";
+    })() + "。",   /* v19：节尾补句号，与四 / 五节一致（兜底句作「……即可。」收尾） */
+    "签发：Atria-Dawn 协同诊断中心 ｜ "+((d.meta&&d.meta.project)?d.meta.project+" ｜ ":"")+"报告编号 "+no+" ｜ "+cleanIssueDate(d)+"（"+((d.meta&&d.meta.badge)||"示例数据")+"，自动生成）"   /* v17：签发条补项目名，打印件不再看不出是哪个项目 */
+  ];
+  return lines;
+}
+/* v18：报告正文结构化——每节首行「X、标题」拆成 h3（复用现成的 .report h3 样式），
+ * 首节正文套 .concl、末段签发条套 .sign（此前这两个类只有打印路径挂），不再九节内容整段塞同一个 <p> */
+function reportSegments(lines){
+  const segs=[];
+  lines.forEach((l,idx,arr)=>{
+    const m=/^([一二三四五六七八九十]+、[^\n]+)\n([\s\S]*)$/.exec(l);
+    if(m){
+      segs.push({tag:"h3",cls:"",text:m[1]});
+      segs.push({tag:"p",cls:idx===0?"concl":"",text:m[2].replace(/^\n+/,"")});
+    }else{
+      segs.push({tag:"p",cls:idx===arr.length-1?"sign":"",text:l});
+    }
+  });
+  return segs;
+}
+/* v7：报告编号（与页眉一致） */
+function cleanIssueDate(d){   /* v14：统一剥掉 meta.date 里「体检日期：」之类的前缀 */
+  const raw=((d||{}).meta&&d.meta.date)||"";
+  return raw.replace(/^[^0-9]*/,"").trim()||"2026年";
+}
+function buildReportNo(){
+  const dt=cleanIssueDate(DATA);
+  const proj=(DATA.meta&&DATA.meta.project)||"";
+  let code=0;
+  for(const ch of proj)code=(code*31+ch.charCodeAt(0))%1000;
+  return "ATRIA-"+dt+"-"+String(code).padStart(3,"0");
+}
+function resetReport(){
+  if(reportTimer){clearInterval(reportTimer);reportTimer=null;}
+  const report=$("report");
+  report.classList.remove("show");report.innerHTML="";
+  reportText="";typingDone=false;
+  $("genBtn").disabled=false;$("genBtn").textContent="生成复盘报告";
+  $("skipBtn").style.display="none";
+  $("dlBtn").style.display="none";$("cpBtn").style.display="none";
+}
+function startTyping(){
+  const report=$("report");
+  resetReport();
+  report.classList.add("show");
+  if(!prefersReduced)smoothScroll(report,"start");
+  // v4：五维评分 SVG 图（打字区上方）
+  const chart=document.createElement("div");
+  chart.className="report-chart";
+  chart.innerHTML=buildDimChartSVG();
+  report.appendChild(chart);
+  const lines=buildReportLines();
+  const segs=reportSegments(lines);   /* v18：章节标题 h3 + 首段结论块 + 末段签发条 */
+  reportText=lines.join("\n\n");
+  $("genBtn").disabled=true;$("genBtn").textContent="生成中…";
+  $("skipBtn").style.display="";   /* v13：允许跳过打字动画 */
+  let si=0,ci=0;
+  const seg0=segs[0]||{tag:"p",cls:"",text:""};
+  let cur=document.createElement(seg0.tag);cur.className=seg0.cls;report.appendChild(cur);
+  const caret=document.createElement("span");caret.className="caret";report.appendChild(caret);
+  reportTimer=setInterval(()=>{
+    if(si>=segs.length){
+      caret.remove();clearInterval(reportTimer);reportTimer=null;typingDone=true;
+      $("genBtn").disabled=false;$("genBtn").textContent="重新生成";
+      $("dlBtn").style.display="";$("cpBtn").style.display="";
+      $("skipBtn").style.display="none";   /* v13 */
+      return;
+    }
+    const seg=segs[si];
+    if(ci<=seg.text.length){
+      cur.textContent=seg.text.slice(0,ci++);
+    }else{
+      si++;ci=0;
+      if(si<segs.length){   /* v18：末段播完后再等一拍收尾，节奏与原逻辑一致 */
+        cur=document.createElement(segs[si].tag);cur.className=segs[si].cls;
+        report.insertBefore(cur,caret);
+        cur.textContent="";
+      }
+    }
+  },24);
+}
+$("genBtn").addEventListener("click",startTyping);
+
+/* v4：五维评分 SVG 图（主题感知，随 PAL 变色） */
+function buildDimChartSVG(){
+  const dims=DATA.dims||[];
+  if(!dims.length)return "";
+  const p=PAL();
+  const rowH=30, padL=112, padR=52, Wpx=520, Hpx=dims.length*rowH+16;
+  const barW=Wpx-padL-padR;
+  let s=`<svg viewBox="0 0 ${Wpx} ${Hpx}" role="img" aria-label="五维评分条形图">`;
+  dims.forEach((d,i)=>{
+    const y=8+i*rowH;
+    const v=Math.max(0,Math.min(100,d.v));
+    const col=v>=75?p.good:v>=65?p.mid:p.bad;
+    s+=`<text x="${padL-8}" y="${y+15}" text-anchor="end" font-size="12" fill="${p.nodeText}">${esc(d.n)}</text>`;
+    s+=`<rect x="${padL}" y="${y+4}" width="${barW}" height="14" rx="7" fill="${p.track}"/>`;
+    s+=`<rect x="${padL}" y="${y+4}" width="${(barW*v/100).toFixed(1)}" height="14" rx="7" fill="${col}"/>`;
+    s+=`<text x="${Wpx-8}" y="${y+15}" text-anchor="end" font-size="12" font-weight="700" fill="${col}">${v}</text>`;
+  });
+  s+="</svg>";
+  return s;
+}
+function reportToMarkdown(){
+  const d=DATA;
+  const lines=buildReportLines();
+  const mdCell=s=>String(s==null?"":s).replace(/\|/g,"\\|").replace(/\r?\n/g," ");
+  const mdBar=v=>{const f=Math.max(0,Math.min(10,Math.round(v/10)));return "▓".repeat(f)+"░".repeat(10-f);};
+  const md=[];
+  md.push("# 跨组织协同体检报告单");
+  md.push("");
+  md.push("> 报告编号 "+buildReportNo()+" ｜ " + ((d.meta&&d.meta.project)||"") + " ｜ " + ((d.meta&&d.meta.mode)||"") + " ｜ " + ((d.meta&&d.meta.date)||""));
+  md.push("");
+  md.push("**协同健康度："+(d.total||0)+" 分（"+gradePlain(d.total||0)+"）**");
+  md.push("");
+  md.push("## 一、总检结论");
+  md.push("");
+  md.push(buildConclusion());
+  md.push("");
+  md.push("## 二、五维评分");
+  md.push("");
+  md.push("| 维度 | 评分 | 图形 | 归因卡点 |");
+  md.push("|---|---|---|---|");
+  (d.dims||[]).forEach((x,di)=>{
+    const cnt=(attrMap||[]).filter(a=>a===di).length;
+    md.push("| "+mdCell(x.n)+" | "+mdCell(x.v)+" | "+mdBar(x.v)+" | "+cnt+" 项 |");
+  });
+  md.push("");
+  md.push("## 三、卡点分诊");
+  md.push("");
+  ["高","中","低"].forEach(sev=>{
+    const items=(d.blockers||[]).map((b,i)=>({b,i})).filter(x=>x.b.sev===sev);
+    if(!items.length)return;
+    md.push("### "+({"高":"重点干预","中":"观察跟进","低":"常规优化"}[sev]||sev)+" · "+sev+"风险");   /* v23（轻）：组名去掉「（X风险）」括注——后半已拼「 · X风险」，同一定语不重复 */
+    md.push("");
+    items.forEach(({b,i})=>{
+      const dimN=(attrMap[i]!=null&&attrMap[i]>=0&&d.dims[attrMap[i]])?d.dims[attrMap[i]].n:"未归因";
+      md.push("- **"+b.t+"**（"+sev+"风险 · 归因："+dimN+"）");
+      md.push("  - 表现："+b.d);
+      md.push("  - 证据："+b.ev);
+      md.push("  - 处方："+b.fix);
+      const names=(b.orgs||[]).map(id=>{
+        const o=(d.orgs||[]).find(x=>x.id===id);
+        return o?o.name:id;
+      });
+      md.push("  - 涉及主体："+names.join(" / "));
+    });
+    md.push("");
+  });
+  /* v19：主体健康度表降为无编号明细——原「## 四、主体健康度」与屏幕报告的「四、干预处方」编号各说各话 */
+  md.push("## 主体健康度明细");
+  md.push("");
+  md.push("| 主体 | 角色 | 健康度 |");
+  md.push("|---|---|---|");
+  (d.orgs||[]).forEach(o=>md.push("| "+mdCell(o.name)+" | "+mdCell(o.role)+" | "+mdCell(o.health)+" |"));
+  md.push("");
+  /* v19：四~七节按屏幕报告编号原样收录（复用 buildReportLines 同源内容，编号与屏幕 / 打印两路一致）——
+     v14 重写时只过滤收录六 / 七两节，整节丢失了「五、协同亮点」 */
+  lines.filter(l=>l.startsWith("四、")||l.startsWith("五、")||l.startsWith("六、")||l.startsWith("七、")).forEach(l=>{
+    const nl=l.indexOf("\n");
+    md.push("## "+l.slice(0,nl));
+    md.push("");
+    md.push(l.slice(nl+2));
+    md.push("");
+  });
+  md.push("---");
+  md.push("");
+  md.push("签发：Atria-Dawn 协同诊断中心 ｜ 报告编号 "+buildReportNo()+" ｜ "+((d.meta&&d.meta.badge)||"示例数据")+" ｜ 单文件 HTML · 离线运行");
+  return md.join("\n");
+}
+$("dlBtn").addEventListener("click",()=>{
+  const md=reportToMarkdown();
+  const blob=new Blob(["﻿"+md],{type:"text/markdown;charset=utf-8"});
+  const a=document.createElement("a");
+  a.href=URL.createObjectURL(blob);
+  a.download="跨组织协同体检报告.md";
+  document.body.appendChild(a);a.click();a.remove();
+  setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+});
+$("cpBtn").addEventListener("click",async()=>{
+  const md=reportToMarkdown();
+  try{
+    if(navigator.clipboard&&navigator.clipboard.writeText){
+      await navigator.clipboard.writeText(md);
+    }else{
+      const ta=document.createElement("textarea");
+      ta.value=md;document.body.appendChild(ta);ta.select();
+      document.execCommand("copy");ta.remove();
+    }
+    $("cpBtn").textContent="已复制 ✓";
+    setTimeout(()=>$("cpBtn").textContent="复制全文",1500);
+  }catch(err){
+    $("cpBtn").textContent="复制失败，请手动选择复制";
+    setTimeout(()=>$("cpBtn").textContent="复制全文",2000);
+  }
+});
+
+/* ================= 场景预设：切换数据即切换项目 ================= */
+/* 统一映射：0=医院新院区（默认数据）、1=轨道交通4号线、2=老城区排水改造 */
+const ALL_SCENES=[DEFAULT_DATA].concat(SCENARIOS);
+let curScene=0;
+/* 对比模式：cmpPending=等待选目标；cmpScene=已选中的对比场景 */
+let cmpPending=false, cmpScene=null;
+function clampScore(v){return Math.max(0,Math.min(100,v||0));}
+function switchScene(i){
+  curScene=i;
+  exitCmp();
+  loadData(clone(ALL_SCENES[i]));
+  buildSceneBtns();
+  try{localStorage.setItem(KEY_SCENE,String(i));}catch(e){}
+  const ed=$("ioEdit");
+  let draftKept=false;   /* v25（轻④）：编辑框有未应用改动时挂起草稿，不用新场景数据覆盖 */
+  if(ed&&ed.classList.contains("show")){
+    /* v25（轻④）：打开了编辑框且相对打开时快照有改动 = 正改到一半——直接重写 value+_snap 会把草稿
+       静默吞掉，快照一重置收起判定还会反报「数据未改动」。检测到改动时保留草稿（value / _snap
+       都不动，收起时仍按编辑过走应用或报解析错误），并在切换反馈里明示 */
+    if(ed._snap!=null&&ed.value!==ed._snap){
+      draftKept=true;
+    }else{
+      /* v24（中）：刷新编辑框时同步 _snap——否则 value≠snap，收起被误判成「编辑过」
+         （只切了个场景、一个字没编辑，点回按钮却走完整应用路径：重载数据、取消预设高亮、报「已应用」） */
+      ed.value=JSON.stringify(DATA,null,2);ed._snap=ed.value;
+    }
+  }
+  sayTo("已切换到「"+((DATA.meta&&DATA.meta.project)||"示例场景")+"」"
+    +(draftKept?"（编辑框中有未应用的改动，已保留草稿，未用新场景数据覆盖）":""),true);
+}
+function bindSceneBtns(){
+  for(let i=0;i<ALL_SCENES.length;i++){
+    const b=$("sceneBtn"+i);
+    if(!b)continue;
+    b.setAttribute("aria-pressed",i===curScene?"true":"false");
+    b.onclick=()=>{
+      if(cmpPending&&i!==curScene){enterCmp(i);return;}
+      if(cmpPending&&i===curScene){   /* v15：点当前场景不再零反馈 */
+        sayTo("已处于「"+((ALL_SCENES[i].meta||{}).project||"当前场景")+"」，请选另一个场景作对比","info");
+        return;
+      }
+      if(i!==curScene)switchScene(i);
+    };
+  }
+}
+function buildSceneBtns(){
+  /* v12：场景按钮由数据动态生成 —— 新增场景只需在数据里追加 */
+  const wrap=$("sceneBtnsWrap");
+  if(wrap&&wrap.getAttribute("data-built")!==String(ALL_SCENES.length)){
+    wrap.setAttribute("data-built",String(ALL_SCENES.length));
+    wrap.innerHTML="";
+    for(let i=0;i<ALL_SCENES.length;i++){
+      const d=ALL_SCENES[i];
+      const b=document.createElement("button");
+      b.type="button";b.className="scene-btn";b.id="sceneBtn"+i;
+      b.textContent=((d.meta&&d.meta.project)||("场景"+(i+1))).replace(/^示例项目：/,"示例：");
+      wrap.appendChild(b);
+    }
+  }
+  for(let i=0;i<ALL_SCENES.length;i++){
+    const b=$("sceneBtn"+i);
+    if(!b)continue;
+    b.setAttribute("aria-pressed",i===curScene?"true":"false");
+  }
+}
+/* ===== 对比模式（v4） ===== */
+function enterCmp(i){
+  cmpPending=false;
+  cmpScene=i;
+  const row=$("sceneRow");
+  if(row)row.classList.remove("cmp-pending");
+  const lab=$("cmpLab");
+  if(lab)lab.style.display="none";
+  const cb=$("cmpBtn");
+  if(cb)cb.setAttribute("aria-pressed","true");
+  renderCompare();
+}
+function exitCmp(){
+  cmpPending=false;
+  cmpScene=null;
+  const cb=$("cmpBtn");
+  if(cb)cb.setAttribute("aria-pressed","false");
+  const row=$("sceneRow");
+  if(row)row.classList.remove("cmp-pending");
+  const lab=$("cmpLab");
+  if(lab)lab.style.display="none";
+  const card=$("cmpCard");
+  if(card)card.classList.remove("show");
+}
+function toggleCmp(){
+  if(cmpPending||cmpScene!==null){exitCmp();return;}
+  cmpPending=true;
+  const row=$("sceneRow");
+  if(row)row.classList.add("cmp-pending");
+  const lab=$("cmpLab");
+  if(lab)lab.style.display="";
+  const cb=$("cmpBtn");
+  if(cb)cb.setAttribute("aria-pressed","true");
+}
+function renderCompare(){
+  const box=$("cmpBody"), card=$("cmpCard");
+  if(!box||!card)return;
+  if(cmpScene===null){card.classList.remove("show");return;}
+  card.classList.add("show");
+  const A=DATA, B=clone(ALL_SCENES[cmpScene]);
+  const nameA=(A.meta&&A.meta.project)||"当前场景";
+  const nameB=(B.meta&&B.meta.project)||"对比场景";
+  const tA=clampScore(A.total), tB=clampScore(B.total);
+  const dT=tB-tA;
+  const cls=dT>0?"up":dT<0?"down":"eq";
+  const dimsA=A.dims||[], dimsB=B.dims||[];
+  const n=Math.max(dimsA.length,dimsB.length);
+  let rows="";
+  for(let i=0;i<n;i++){
+    const a=dimsA[i], b=dimsB[i];
+    const va=a?clampScore(a.v):null, vb=b?clampScore(b.v):null;
+    const nm=(a&&a.n)||(b&&b.n)||"—";
+    const dd=(va!=null&&vb!=null)?(vb-va):null;
+    const dCls=dd==null?"eq":dd>0?"up":dd<0?"down":"eq";
+    rows+=`<div class="cmp-row">
+      <span>${esc(nm)}</span>
+      <div class="cmp-bars">
+        <div class="cmp-bar b-cur"><i style="width:${va==null?0:va}%"></i></div>
+        <div class="cmp-bar b-cmp"><i style="${(vb==null||vb<=0)?"display:none":"width:"+vb+"%"}"></i></div>   <!-- v16：描边条宽 0 时 box-sizing 会留 3px 边框，故跳过渲染 -->
+      </div>
+      <span class="cmp-delta ${dCls}">${dd==null?"—":(dd>0?"+":"")+dd}</span>
+    </div>`;
+  }
+  /* 主体健康度变化（按 id 匹配，取变化最大 5 个） */
+  const mapA={};(A.orgs||[]).forEach(o=>mapA[o.id]=o);
+  const movers=(B.orgs||[])
+    .filter(o=>mapA[o.id]&&typeof o.health==="number"&&typeof mapA[o.id].health==="number")
+    .map(o=>({name:o.name,from:mapA[o.id].health,to:o.health,d:o.health-mapA[o.id].health}))
+    .sort((x,y)=>Math.abs(y.d)-Math.abs(x.d))
+    .slice(0,5);
+  const orgHtml=movers.length?movers.map(m=>{
+    const c=m.d>0?"up":m.d<0?"down":"eq";
+    return `<span style="white-space:nowrap"><b>${esc(m.name)}</b> ${m.from}→${m.to}（<span class="cmp-delta ${c}">${m.d>0?"+":""}${m.d}</span>）</span>`;
+  }).join("　"):"两场景无相同主体";
+  box.innerHTML=`<div class="cmp-head">
+    <b>${esc(nameA)}</b><span class="cmp-score">${tA} 分（${gradePlain(tA)}）</span>
+    <span style="color:var(--muted)">对比</span>
+    <b>${esc(nameB)}</b><span class="cmp-score">${tB} 分（${gradePlain(tB)}）</span>
+    <span class="cmp-delta ${cls}">Δ ${dT>0?"+":""}${dT}</span>
+  </div>
+  ${rows}
+  <div class="cmp-orgs">主体健康度变化：${orgHtml}</div>
+  <div class="cmp-actions">
+    <button type="button" class="io-btn alt" id="cmpGo">切换到「${esc(nameB)}」</button>
+    <button type="button" class="io-btn" id="cmpExit">退出对比</button>
+  </div>`;
+  const go=$("cmpGo"), ex=$("cmpExit");
+  if(go)go.onclick=()=>{if(cmpScene!==null)switchScene(cmpScene);};
+  if(ex)ex.onclick=exitCmp;
+}
+function sayTo(t,ok){
+  /* v16：ok 三档 —— true=成功(蓝) / "info"=中性引导(灰) / false=告警(红)
+     信息性提示不再占用红色告警色（红在本页语义=高风险/报错） */
+  const tone=ok===true?"ok":ok==="info"?"info":"err";
+  const m=$("ioMsg");
+  if(m){m.textContent=t;m.className="io-msg "+(tone==="err"?"err":"ok");}
+  const ts=$("sayToast");
+  if(ts){
+    ts.textContent=t;
+    ts.className="say-toast "+tone+" show";
+    if(ts._tm)clearTimeout(ts._tm);
+    ts._tm=setTimeout(()=>{ts.className="say-toast";},2600);
+  }
+}
+
+/* ================= v3 增强：风险速览 / PNG 导出 / 主题切换 / 打印 ================= */
+function buildRisks(){
+  const box=$("risks");
+  if(!box)return;
+  const d=DATA;
+  const on=id=>(d.orgs||[]).find(x=>x.id===id);
+  const hiBlk=(d.blockers||[]).map((b,i)=>({b,i})).filter(x=>x.b.sev==="高");
+  const weak=(d.links||[]).slice().sort((p,q)=>p[3]-q[3]).slice(0,3);
+  const lowOrg=(d.orgs||[]).filter(o=>o.health<65);
+  const groups=[];
+  groups.push(`<div class="risk-g"><div class="rg-t">高风险卡点（${hiBlk.length}）</div>`+
+    (hiBlk.length
+      ?`<div class="risk-items">${hiBlk.map(x =>
+        `<button type="button" class="risk-item" data-blk="${x.i}"><span class="rv">${esc(x.b.sev)}</span>${esc(x.b.t)}</button>`
+      ).join("")}</div>`
+      :`<div class="risk-ok">✓ 当前无高风险卡点</div>`)+
+    `</div>`);
+  groups.push(`<div class="risk-g"><div class="rg-t">最薄弱关系（健康度最低 ${weak.length} 项）</div>`+   /* v16：N 取实际条数，空数据有兜底 */
+    (weak.length
+      ?`<div class="risk-items">${weak.map(w=>
+        `<button type="button" class="risk-item ri-link" data-la="${esc(w[0])}" data-lb="${esc(w[1])}"><span class="rv">${w[3]}</span>${esc((on(w[0])||{}).short||w[0])} ↔ ${esc((on(w[1])||{}).short||w[1])} · ${esc(w[2])}</button>`
+      ).join("")}</div>`
+      :`<div class="risk-ok">✓ 关系网络无薄弱项</div>`)+
+    `</div>`);
+  groups.push(`<div class="risk-g"><div class="rg-t">健康度偏低主体（&lt;65）</div>`+
+    (lowOrg.length
+      ?`<div class="risk-items">${lowOrg.map(o=>
+        `<button type="button" class="risk-item ri-org" data-org="${esc(o.id)}"><span class="rv">${o.health}</span>${esc(o.name)}</button>`
+      ).join("")}</div>`
+      :`<div class="risk-ok">✓ 全部主体健康度 ≥65</div>`)+
+    `</div>`);
+  box.innerHTML=groups.join("");
+  box.querySelectorAll("button.risk-item[data-blk]").forEach(b=>{
+    b.addEventListener("click",()=>jumpToBlocker(+b.dataset.blk));
+  });
+  box.querySelectorAll("button.risk-item[data-la]").forEach(b=>{
+    b.addEventListener("click",()=>{
+      const la=b.dataset.la,lb=b.dataset.lb;
+      const hit=L.find(l=>{
+        const a=N[l.a],bb=N[l.b];
+        return a&&bb&&((a.id===la&&bb.id===lb)||(a.id===lb&&bb.id===la));
+      });
+      if(hit){
+        selectLink(hit);
+        /* v16：窄屏下详情面板在画布之后，滚到画布会把诊断文字推出视野 —— 直接滚到详情 */
+        const narrow=typeof window.innerWidth==="number"?window.innerWidth<=920:false;
+        smoothScroll(narrow?detail:canvas,"center");
+      }
+    });
+  });
+  box.querySelectorAll("button.risk-item[data-org]").forEach(b=>{
+    b.addEventListener("click",()=>{
+      const n=N.find(x=>x.id===b.dataset.org);
+      if(n){selectNode(n);smoothScroll(detail,"nearest");}
+    });
+  });
+}
+function exportNetPNG(){
+  try{
+    const off=document.createElement("canvas");
+    off.width=canvas.width;off.height=canvas.height;
+    const c2=off.getContext("2d");
+    c2.fillStyle=PAL().nodeFill;
+    c2.fillRect(0,0,off.width,off.height);
+    c2.drawImage(canvas,0,0);
+    const a=document.createElement("a");
+    a.download="跨组织协同关系网络.png";
+    a.href=off.toDataURL("image/png");
+    document.body.appendChild(a);a.click();a.remove();
+    sayTo("已导出关系网络 PNG",true);
+  }catch(err){
+    sayTo("导出 PNG 失败："+err.message,false);
+  }
+}
+function bindTheme(){
+  const b=$("themeBtn");
+  if(!b)return;
+  const sync=()=>{
+    const dark=isDark();
+    b.setAttribute("aria-pressed",dark?"true":"false");
+    b.textContent=dark?"☀️ 浅色模式":"🌙 深色模式";
+    b.setAttribute("aria-label",dark?"切换到浅色模式":"切换到深色模式");
+  };
+  sync();
+  b.onclick=()=>{
+    const dark=isDark();
+    if(dark)document.documentElement.removeAttribute("data-theme");
+    else document.documentElement.setAttribute("data-theme","dark");
+    try{localStorage.setItem(KEY_THEME,dark?"light":"dark");}catch(e){}
+    sync();
+    if(typeof wake==="function")wake(); // 主题切换后重绘画布
+    /* v6：报告五维图换色；v17：连同雷达图 / 图例色带 / 维度行角标签名色一起重建 */
+    refreshThemeArtifacts();
+  };
+}
+/* 打印：未生成报告时自动填充全文，打印结束后还原 */
+let autoPrint=false,printSearch="";
+window.addEventListener("beforeprint",()=>{
+  /* v22（中）：报告正在一个字一个字打的时候直接打印，只会印出残缺的开头（二到七节连同签发条
+     全部缺席，页面也无任何提示）——先 finishTyping() 直出全文再走打印管线 */
+  if(reportTimer)finishTyping();
+  /* v22（轻）：搜索过滤中被 display:none 的卡点会整张漏印、「未命中卡点…试试：…」空态文案也会
+     印进报告纸——打印前先收掉搜索，afterprint 原样恢复用户原样 */
+  const inp=$("blkSearch");
+  if(inp&&inp.value){printSearch=inp.value;inp.value="";runBlkSearch();}
+  /* v22（中）：深色模式下网络画布是按 PAL_DARK 取色的位图，CSS 变量切回浅色管不到它——
+     打印前以浅色调色板重绘一次（连线 / 健康度外环 / 核心实心圆才有白纸对比度） */
+  if(isDark()&&!printLight){printLight=true;draw();}
+  const rep=$("report");
+  if(rep&&!rep.classList.contains("show")){
+    autoPrint=true;
+    rep.innerHTML="";
+    // v20：与 startTyping 屏幕版一致——填充章节文本前先注入五维评分图（report-chart），
+    //     原打印路径只渲染章节文本，未点「生成复盘报告」直接 Ctrl+P 打出的报告缺图
+    const chart=document.createElement("div");
+    chart.className="report-chart";
+    chart.innerHTML=buildDimChartSVG();
+    rep.appendChild(chart);
+    // v7：打印按报告单排版渲染——首段结论块、末段签发条；v18：与打字路径共用 reportSegments（章节标题 h3）
+    reportSegments(buildReportLines()).forEach(seg=>{
+      const el=document.createElement(seg.tag);
+      el.className=seg.cls;
+      el.textContent=seg.text;
+      rep.appendChild(el);
+    });
+    rep.classList.add("show");
+  }
+});
+window.addEventListener("afterprint",()=>{
+  /* v22：恢复打印前的现场——深色画布重绘回深色取色、搜索过滤原样回来 */
+  if(printLight){printLight=false;wake();}
+  if(printSearch){const inp=$("blkSearch");if(inp){inp.value=printSearch;runBlkSearch();}}
+  printSearch="";
+  if(autoPrint){autoPrint=false;resetReport();}
+});
+
+/* ================= 启动 ================= */
+/* ================= v13：可用性 —— 巡览 / 章节导航 / 快捷键 / 报告跳过 ================= */
+/* 内置自动巡览（原 tour 脚本并入主文件；?tour=1 或点按钮激活，任意点击退出） */
+let tourActive=false;
+function sayTour(t){const ov=$("tourOv");if(!ov)return;ov.textContent=t;ov.style.opacity=1;ov.style.transform="translate(-50%,0)";}
+function stopTour(msg){
+  tourActive=false;
+  const tb=$("tourBtn");if(tb){tb.classList.remove("on");tb.textContent="▶ 巡览演示";}
+  const ov=$("tourOv");
+  document.removeEventListener("pointerdown",tourCancel);
+  if(!ov)return;
+  if(msg){
+    /* v19：带告别语时先显示约 2.2 秒再淡出移除——原实现 sayTour(置 opacity=1) 与末尾的 opacity=0
+       在同一同步块内，浏览器只见终态 0，字幕只随 0.45 秒淡出闪一下，2.5 秒移除延迟形同虚设 */
+    sayTour(msg);
+    setTimeout(()=>{
+      if(tourActive||!ov.parentNode)return;
+      ov.style.opacity=0;
+      setTimeout(()=>{if(!tourActive&&ov.parentNode)ov.remove();},500);
+    },2200);
+    return;
+  }
+  ov.style.opacity=0;   /* 正常结束（无告别语）：保持立即淡出 */
+  setTimeout(()=>{if(!tourActive&&ov.parentNode)ov.remove();},2500);
+}
+function tourCancel(e){
+  /* v14：巡览按钮与字幕条自身的点击交给按钮的 click 分支处理，不在此退出 */
+  const t=e.target;
+  if(t&&(t.closest&&t.closest("#tourOv")||t.closest&&t.closest("#tourBtn")))return;
+  stopTour("已退出巡览 —— 可随时手动浏览");
+}
+function startTour(){
+  if(tourActive)return;
+  tourActive=true;
+  /* v15：开播即收起首访气泡（否则录制视频全程顶着「首次到访」） */
+  const cp=$("coachTip");if(cp)cp.hidden=true;
+  markCoached();
+  const ls=(typeof location!=="undefined"&&location.search)||"";
+  const LOOP=/[?&]loop=1/.test(ls);   /* ?loop=1：循环播放（展会 / 触屏 kiosk） */
+  const tb=$("tourBtn");if(tb){tb.classList.add("on");tb.textContent="■ 退出巡览";}
+  if(!$("tourOv")){
+    const sty=document.createElement("style");
+    sty.textContent="#tourOv{position:fixed;left:50%;bottom:22px;transform:translate(-50%,8px);z-index:9999;"+
+      "background:rgba(15,20,28,.88);color:#fff;font:600 14px/1.5 -apple-system,'Segoe UI','Microsoft YaHei',sans-serif;"+
+      "padding:9px 20px;border-radius:999px;letter-spacing:.5px;opacity:0;transition:opacity .45s,transform .45s;"+
+      "box-shadow:0 8px 30px rgba(0,0,0,.35);pointer-events:none;max-width:86vw;text-align:center;}"+
+      "@keyframes tourRing{0%{opacity:.9;transform:scale(.55);}100%{opacity:0;transform:scale(1.7);}}";
+    document.head.appendChild(sty);
+    const ov=document.createElement("div");ov.id="tourOv";document.body.appendChild(ov);
+  }
+  document.addEventListener("pointerdown",tourCancel);
+  const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+  const q=(s,el)=>(el||document).querySelector(s);
+  const qq=(s,el)=>[...(el||document).querySelectorAll(s)];
+  const toTop=()=>{if(typeof window.scrollTo==="function")window.scrollTo({top:0,behavior:prefersReduced?"auto":"smooth"});};
+  const pulse=el=>{
+    if(!el)return;
+    const r=el.getBoundingClientRect();
+    const ring=document.createElement("div");
+    ring.style.cssText="position:fixed;left:"+(r.left+r.width/2-26)+"px;top:"+(r.top+r.height/2-26)+
+      "px;width:52px;height:52px;border-radius:50%;border:3px solid #3b5bdb;pointer-events:none;z-index:9998;"+
+      "animation:tourRing 1.1s ease-out forwards;";
+    document.body.appendChild(ring);
+    setTimeout(()=>ring.remove(),1300);
+  };
+  (async()=>{
+    const ok=()=>tourActive;
+    await sleep(500);if(!ok())return;
+    smoothScroll($("cardHero"),"start");   /* v20：走封装，尊重 prefers-reduced-motion */
+    sayTour("① 体检报告单式总览："+(DATA.total||0)+" 分 · "+gradePlain(DATA.total||0)+   /* v24（轻）：与印章 / 报告正文同一口径（gradePlain 去「良（B）」括号） */
+      " —— 结论先行，印章旁可见「较上次复查」趋势");
+    await sleep(6500);if(!ok())return;
+    /* v20：改选「归因数非 0」的维度行——原固定取第二行（按分排序），水厂场景第二行
+       恰为归因 0 项的「目标一致性」，点了之后网络与卡点全淡出、③ 幕「关联卡点一点
+       直达」整幕落空；全部为 0 时退回第二行保持原行为 */
+    const dimRow=qq(".dim-row").find(r=>{
+      const di=r.getAttribute("data-di");
+      return di!=null&&attrMap.filter(a=>a===+di).length>0;
+    })||qq(".dim-row")[1];
+    /* v16：维度名从数据取纯名称——textContent 会带上「归因 n 项▲ +4 75」整行杂质 */
+    const dimBadge=dimRow&&dimRow.getAttribute("data-di");
+    const dimName=(dimBadge!=null&&DATA.dims[+dimBadge])?DATA.dims[+dimBadge].n:"维度";
+    sayTour("② 维度归因：点「"+dimName+"」→ 签名色贯穿列表 / 角标 / 网络高亮");
+    pulse(dimRow);if(dimRow)dimRow.click();
+    /* v19：字幕承诺的角标在第六张卡、网络高亮环在第五张卡，均在首屏外——点击后依次滚到
+       网络卡 / 卡点卡把贯穿效果带进镜头（7500ms 拆成两段，巡览总时长不变） */
+    smoothScroll($("cardNet"),"center");
+    await sleep(3800);if(!ok())return;
+    smoothScroll($("cardBlocks"),"center");
+    await sleep(3700);if(!ok())return;
+    /* v22：维度详情面板的归因卡点标签改用签名色（class="tag"，不再 .tag.gov）——选择器随新标记 */
+    const chip=q("#detail .tag[data-bi]");
+    if(chip){
+      sayTour("③ 关联卡点：详情面板里的归因卡点，可一点直达分诊");   /* v16：独立编号，不再用延续标记 */
+      pulse(chip);chip.click();await sleep(6500);
+    }
+    if(!ok())return;
+    sayTour("④ 主体诊断：点击网络主体，查看健康度与上下游协同关系");
+    /* v17：先滚到网络卡片再点击——否则快捷按钮 / 脉冲环 / 网络高亮都在镜头外 */
+    const netCard=$("cardNet");
+    if(netCard)smoothScroll(netCard,"start");   /* v20：走封装，尊重 prefers-reduced-motion */
+    await sleep(900);if(!ok())return;
+    const qo=qq(".qorg")[3]||qq(".qorg")[0];
+    pulse(qo);if(qo)qo.click();
+    await sleep(6500);if(!ok())return;
+    /* v16：阶段名运行时取——原写死「设计阶段」，实际点的是 phases[2] */
+    const dotIdx=2;
+    const phName=(DATA.phases&&DATA.phases[dotIdx]&&DATA.phases[dotIdx].label)||"阶段";
+    /* v22（轻）：字幕改为「看该阶段的参与主体」——卡点不带阶段字段，「该阶段的卡点」并不存在 */
+    sayTour("⑤ 阶段聚焦：时间轴定位到「"+phName+"」阶段，看该阶段的参与主体");
+    /* v17：时间轴圆点在视口上方，先滚到时间轴卡片再点（同 ⑥ 幕写法） */
+    const tlCard=$("cardTimeline");
+    if(tlCard)smoothScroll(tlCard,"start");   /* v20：走封装，尊重 prefers-reduced-motion */
+    await sleep(900);if(!ok())return;
+    const dot=qq(".tl-m")[dotIdx]||qq(".tl-m")[0];
+    pulse(dot);if(dot)dot.click();
+    await sleep(6500);if(!ok())return;
+    sayTour("⑥ 卡点分诊：高 / 中 / 低三档，重点干预置顶，点击展开处方");
+    const blkCard=$("cardBlocks");
+    if(blkCard)smoothScroll(blkCard,"start");   /* v20：走封装，尊重 prefers-reduced-motion */
+    await sleep(1100);if(!ok())return;
+    const blk=q(".blk");
+    if(blk){pulse(blk);blk.click();}
+    await sleep(7000);if(!ok())return;
+    sayTour("⑦ 一键切换场景：换数据即换项目，全套看板自动刷新（共 5 个场景）");
+    toTop();
+    await sleep(1300);if(!ok())return;
+    const sb=qq(".scene-btn").find(b=>b.getAttribute("aria-pressed")!=="true")||qq(".scene-btn")[0];
+    /* v15：优先点「非当前场景」——记住的场景可能是任意下标，原写死 [1] 时点击无反应 */
+    pulse(sb);if(sb)sb.click();
+    await sleep(7500);if(!ok())return;
+    sayTour("⑧ 跨场景对比：五维评分与主体健康度并排");
+    const cb=$("cmpBtn");
+    pulse(cb);if(cb)cb.click();
+    await sleep(1400);if(!ok())return;
+    const target=qq(".scene-btn").find(b=>b.getAttribute("aria-pressed")!=="true")||qq(".scene-btn")[0];
+    if(target){pulse(target);target.click();}
+    const cmpCard=$("cmpCard");
+    if(cmpCard)smoothScroll(cmpCard,"center");   /* v20：走封装，尊重 prefers-reduced-motion */
+    await sleep(7500);if(!ok())return;
+    sayTour("⑨ 生成复盘报告：30 天干预时间线 + 按主体整改清单 · 可打印 / Markdown");
+    /* v19：生成按钮在第七张卡（报告区）内、首屏外约两千像素——先滚到报告卡再点击（同 ④/⑤/⑥ 幕写法），
+       原先先 toTop() 滚回页首，脉冲环与合成点击都画在镜头外，约 1.5 秒画面停在页首无可见动作 */
+    smoothScroll($("cardReport"),"center");
+    await sleep(1000);if(!ok())return;
+    const gb=$("genBtn");
+    pulse(gb);if(gb)gb.click();
+    await sleep(2600);if(!ok())return;
+    finishTyping();   /* v14：巡览不等打字机播完，直接出全文 */
+    const rep=$("report");
+    if(rep)smoothScroll(rep,"start");   /* v20：走封装，尊重 prefers-reduced-motion */
+    await sleep(7000);if(!ok())return;
+    /* v19：场景预设按钮在页眉第二排靠左，收尾先滚回页眉再喊话——
+       原字幕「点右上角场景」既指错位置，那时画面还停在报告区、按钮根本不在屏幕里 */
+    toTop();
+    await sleep(900);if(!ok())return;
+    sayTour("演示结束 —— 按 ? 查看快捷键，或点页面顶部「场景预设」按钮继续探索");
+    await sleep(4500);if(!ok())return;
+    if(LOOP){sayTour("循环播放中 —— 按 Esc 或点击任意处退出");await sleep(3000);if(!ok())return;try{location.reload();}catch(e){}}
+    if(typeof console!=="undefined")console.log("TOUR_DONE");   /* v14：供 record.js 提前停止截帧 */
+    stopTour();
+  })().catch(e=>{(typeof window!=="undefined")&&(window.__tourErr=(e&&e.message)||String(e));stopTour();});
+}
+/* 画布缩放按钮（复用键盘 +/-/0 的同一逻辑路径） */
+function zoomBy(f){
+  /* v17：钉住画布中心缩放——与滚轮缩放同一锚点逻辑。
+     原实现只乘倍数、不动 view.x/y，放大时整张图朝右下平移、节点滑出画布 */
+  const cx=W/2,cy=H/2,[wx,wy]=toWorld(cx,cy);
+  view.z=Math.max(0.5,Math.min(2.5,view.z*f));
+  view.x=cx-wx*view.z;view.y=cy-wy*view.z;
+  wake();
+}
+function resetView(){view.z=1;view.x=0;view.y=0;wake();}
+/* 报告跳过动画：立即渲染全文 */
+function finishTyping(){
+  if(!reportTimer)return false;
+  clearInterval(reportTimer);reportTimer=null;
+  const report=$("report");
+  report.querySelectorAll("p,h3").forEach(p=>p.remove());   /* v18：h3 一起清除 */
+  const caret=report.querySelector(".caret");
+  reportSegments(buildReportLines()).forEach(seg=>{   /* v18：与打字路径同一结构（h3 / concl / sign） */
+    const el=document.createElement(seg.tag);el.className=seg.cls;el.textContent=seg.text;
+    report.insertBefore(el,caret);
+  });
+  if(caret)caret.remove();
+  typingDone=true;reportText=buildReportLines().join("\n\n");
+  $("genBtn").disabled=false;$("genBtn").textContent="重新生成";
+  $("dlBtn").style.display="";$("cpBtn").style.display="";$("skipBtn").style.display="none";
+  return true;
+}
+/* 悬浮章节导航 */
+const SECTIONS=[["#cardHero","总览"],["#cardRisks","风险"],["#cardTimeline","时间轴"],["#cardNet","网络"],["#cardBlocks","卡点"],["#cardReport","报告"]];
+function buildDockNav(){
+  const nav=$("dockNav");if(!nav)return;
+  nav.innerHTML="";
+  SECTIONS.forEach(([sel,label])=>{
+    const b=document.createElement("button");
+    b.type="button";b.textContent=label;b.setAttribute("aria-label","跳转到「"+label+"」");
+    b.addEventListener("click",()=>{const t=document.querySelector(sel);if(t)smoothScroll(t,"start");});
+    nav.appendChild(b);
+  });
+  window.addEventListener("scroll",()=>{
+    nav.classList.toggle("show",(window.scrollY||0)>380);
+  },{passive:true});
+}
+/* 快捷键：/ 聚焦搜索，? 帮助，Esc 关闭帮助 */
+function toggleKbdHelp(force){
+  const h=$("kbdHelp");if(!h)return;
+  h.hidden=(force===undefined)?!h.hidden:force;
+}
+window.addEventListener("keydown",e=>{
+  const tag=((e.target&&e.target.tagName)||"").toUpperCase();
+  const editing=/^(INPUT|TEXTAREA|SELECT)$/.test(tag);
+  if(e.key==="/"&&!editing){e.preventDefault();const s=$("blkSearch");if(s)s.focus();}
+  else if(e.key==="?"&&!editing){e.preventDefault();toggleKbdHelp();}
+  else if(e.key==="Escape"){
+    const h=$("kbdHelp");
+    if(h&&!h.hidden){h.hidden=true;return;}   /* 弹层打开时优先关弹层（弹层是最上层） */
+    /* v22（中）：巡览激活时 Esc 直接退出（?loop=1 循环字幕承诺「按 Esc 或点击任意处退出」——
+       原全局 Esc 从不碰 tourActive，巡览停不下来，还会顺手清掉后续步骤依赖的选中态） */
+    if(tourActive){stopTour("已退出巡览 —— 可随时手动浏览");return;}
+    if(editing)return;                         /* 输入框内编辑时让出 Esc */
+    /* v20：Esc 一并退出对比模式——原漏掉 cmpPending / cmpScene 待选态，金框与
+       「点击任一场景作为对比对象」提示不退（快捷键帮助承诺「Esc 清空选中」） */
+    if(cmpPending||cmpScene!==null)exitCmp();
+    /* v17：无弹层时清空全部选中态并复位详情面板——兑现快捷键帮助「Esc 清空选中」的承诺
+       （原清选逻辑只挂在画布 keydown 上，点维度行 / 卡点 / 按钮后焦点不在画布，按 Esc 无反应） */
+    kbNode=null;selNode=null;selLink=null;updateQuickSel();
+    if(activeDim!==null)pickDim(activeDim);   /* v14：Esc 连维度过滤一起清掉 */
+    activeBlocker=null;clearBlkSel();   /* v15：Esc 也清掉卡点选中/展开态 */
+    activePhase=null;clearTlSel();
+    detail.innerHTML=`<h3>诊断详情</h3><div class="empty">点击总览五维、时间轴阶段、网络中的主体或关系、或下方卡点，在此查看结构化诊断。</div>`;
+    $("netHint").classList.remove("show");
+    wake();
+  }
+});
+/* 首访提示 */
+const COACH_KEY="atria_demo_coached";
+function markCoached(){try{localStorage.setItem(COACH_KEY,"1");}catch(e){}}
+
+(function init(){
+  let s=0;
+  try{
+    const v=parseInt(localStorage.getItem(KEY_SCENE),10);
+    if(!isNaN(v)&&v>=0&&v<ALL_SCENES.length)s=v;
+  }catch(e){}
+  curScene=s;
+  loadData(clone(ALL_SCENES[s]));
+  buildSceneBtns();   /* v12：按钮由数据生成 */
+  bindSceneBtns();
+  buildDataPanel();
+  bindTheme();
+  bindBlkSearch();
+  $("pngBtn").addEventListener("click",exportNetPNG);
+  const cb=$("cmpBtn");
+  if(cb)cb.onclick=toggleCmp;
+  /* v13：可用性装配 */
+  buildDockNav();
+  $("zoomIn").addEventListener("click",()=>zoomBy(1.2));
+  $("zoomOut").addEventListener("click",()=>zoomBy(1/1.2));
+  $("zoomReset").addEventListener("click",resetView);
+  $("skipBtn").addEventListener("click",finishTyping);
+  $("tourBtn").addEventListener("click",()=>{
+    markCoached();
+    if(tourActive)stopTour("已退出巡览 —— 可随时手动浏览");
+    else startTour();
+  });
+  try{if(/[?&]tour=1/.test((location||{}).search||""))startTour();}catch(e){}
+  try{if(!localStorage.getItem(COACH_KEY))$("coachTip").hidden=false;}catch(e){}
+  $("coachX").addEventListener("click",()=>{$("coachTip").hidden=true;markCoached();});
+})();
+</script>
+</body>
+</html>

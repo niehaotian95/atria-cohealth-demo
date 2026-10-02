@@ -1,0 +1,6 @@
+[1001/204818.810:ERROR:third_party\crashpad\crashpad\client\crashpad_client_win.cc:421] OpenProcess: 拒绝访问。 (0x5)
+[8524:19212:1001/204819.077:ERROR:chrome\browser\net\system_network_context_manager.cc:1002] Cannot use V8 Proxy resolver in single process mode.
+[8524:10380:1001/204819.077:ERROR:chrome\installer\util\google_update_settings_win.cc:270] Failed opening key Software\Google\Update\ClientState\{8A69D345-D564-463c-AFF1-A69D9E530F96} to set usagestats; result: 5
+[8524:19212:1001/204819.110:ERROR:chrome\browser\net\system_network_context_manager.cc:1002] Cannot use V8 Proxy resolver in single process mode.
+[8524:29348:1001/204819.166:FATAL:mojo\public\cpp\platform\platform_channel.cc:112] Check failed: . : 拒绝访问。 (0x5)
+[1001/204819.176:ERROR:third_party\crashpad\crashpad\client\crashpad_client_win.cc:142] crash server failed to launch, self-terminating

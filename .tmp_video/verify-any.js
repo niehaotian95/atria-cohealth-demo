@@ -1,0 +1,10 @@
+const fs = require("fs");
+const ver = process.argv[2] || "28";
+const v = fs.readFileSync(`Atria-协同体检中心-v${ver}.html`, "utf8");
+const t = fs.readFileSync("演示视频工具/tour.html", "utf8");
+const anchor = 'try{if(/[?&]tour=1/.test((location||{}).search||""))startTour();}catch(e){}';
+const force = 'startTour();   /* 巡览版：双击即自动播放（?loop=1 循环） */';
+console.log("tour identical after normalization:", v.replace(anchor, "@@@") === t.replace(force, "@@@"));
+console.log("使用说明 refs v" + ver + ":", fs.readFileSync("演示视频工具/使用说明.md", "utf8").includes(`v${ver}.html`));
+console.log("make-tour SRC v" + ver + ":", fs.readFileSync(".tmp_video/make-tour.js", "utf8").includes(`v${ver}.html`));
+console.log("size KB:", (v.length / 1024).toFixed(1));
