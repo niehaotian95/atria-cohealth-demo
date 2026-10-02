@@ -289,6 +289,7 @@ try {
   pointerUp:pointerUp, runBlkSearch:runBlkSearch,
   getReportTimer:()=>reportTimer, getActiveDim:()=>activeDim,
   getActivePhase:()=>activePhase, getActiveBlocker:()=>activeBlocker,
+  getSelNode:()=>selNode, getSelLink:()=>selLink,   /* v32：状态机不变量网读取两个选择态 */
   printLight:()=>printLight,
   startTour:startTour, stopTour:stopTour, tourActive:()=>tourActive,
   setDrag:(n)=>{dragNode=n;}, isAnimating:isAnimating,
@@ -2504,6 +2505,119 @@ if (runtime) {
     check("v31：守卫带 tourActive（巡览版第八幕与本路径互不重复滚动）",
       mainCode.includes("if(!tourActive){"));
   } catch (e) { check("v31 静态回归", false, e.message); }
+
+  /* ---- v32 Step 0：状态机不变量网（行为断言，钉不变量而非字面文本）
+     五个互斥选择态：activeDim / activePhase / activeBlocker / selNode / selLink
+     六个入口：pickDim / pickPhase / selectNode / selectLink / 卡点 toggle / runBlkSearch
+     每条历史「半口径」回归（v19/v24/v25/v26/v27）都是某入口手写清场仪式的缺行——
+     这里钉的是「任何转换后世界必须长什么样」，与入口怎么写无关 ---- */
+  try {
+    const K = ["dim", "phase", "blocker", "node", "link"];
+    const state = () => ({
+      dim: R.getActiveDim(), phase: R.getActivePhase(), blocker: R.getActiveBlocker(),
+      node: R.getSelNode(), link: R.getSelLink()
+    });
+    const nonNull = s => K.filter(k => s[k] !== null && s[k] !== undefined);
+    const noFade = () => doc.querySelectorAll(".blk.dim-fade").length === 0;
+    const noTlSel = () => doc.querySelectorAll(".tl-m.sel").length === 0;
+    const noBlkSel = () => doc.querySelectorAll(".blk.sel").length === 0 && doc.querySelectorAll(".blk.open").length === 0;
+    /* 只数 #qorgs 的活子节点：桩的 querySelectorAll 不强制祖先关系，
+       历次 switchScene 重建 detached 的旧 .qorg 仍在 createdEls 里（跨场景共用 org id，会虚增计数） */
+    const qorgCurrent = () => {
+      const qo = doc.getElementById("qorgs");
+      return (qo ? qo.children : []).filter(b => b.getAttribute && b.getAttribute("aria-current") === "true").length;
+    };
+    const hintShown = () => doc.getElementById("netHint").classList.contains("show");
+    const guideInDetail = () => R.detail.innerHTML.includes("点击总览五维");
+
+    function resetAll() {   /* 先把五个态全部归零，给矩阵一个干净起点 */
+      if (R.getActiveDim() !== null) R.pickDim(R.getActiveDim());
+      if (R.getActivePhase() !== null) R.pickPhase(R.getActivePhase());
+      const open = doc.querySelectorAll(".blk.open");
+      open.forEach(el => el.click());
+      const si = doc.getElementById("blkSearch");
+      if (si) { si.value = ""; R.runBlkSearch(); }
+    }
+    function apply(kind) {
+      if (kind === "dim") R.pickDim(1);           /* 信息通畅度：医院场景有归因卡点 */
+      else if (kind === "phase") R.pickPhase(2);  /* 招标采购 */
+      else if (kind === "node") R.selectNode(R.getN()[0]);
+      else if (kind === "link") R.selectLink(R.getL()[0]);
+      else { const el = doc.querySelector('.blk[data-bi="0"]'); if (el) el.click(); }
+    }
+    /* 转换后世界：唯一性 / 残留 / 提示条 / 抽屉 / 快捷按钮 五项口径 */
+    function assertWorld(tag, expectKind) {
+      const s = state(), actives = nonNull(s);
+      const okActive = expectKind === null
+        ? actives.length === 0
+        : actives.length === 1 && actives[0] === expectKind;
+      const okFade = (s.dim === null) ? noFade() : true;        /* dim 选中时淡出应在 */
+      const okTl = (s.phase === null) ? noTlSel() : true;
+      const okBlk = (s.blocker === null) ? noBlkSel() : true;
+      const okHint = hintShown() === (s.dim !== null || s.phase !== null || s.blocker !== null);
+      const okQ = qorgCurrent() === (s.node ? 1 : 0);
+      let okDetail = false;
+      if (expectKind === "dim") okDetail = R.detail.innerHTML.includes("维度诊断");
+      else if (expectKind === "phase") okDetail = R.detail.innerHTML.includes("阶段诊断");
+      else if (expectKind === "blocker") okDetail = R.detail.innerHTML.includes("卡点归因");
+      else if (expectKind === "node") okDetail = R.getSelNode() && R.detail.innerHTML.includes(String(R.getSelNode().name));
+      else if (expectKind === "link") okDetail = R.detail.innerHTML.includes("协同关系");
+      else okDetail = guideInDetail();
+      check("不变量网 " + tag + "：唯一选中=" + expectKind + " / 无残留 / 提示条 / 抽屉 / 快捷按钮五口径",
+        okActive && okFade && okTl && okBlk && okHint && okQ && okDetail,
+        "actives=" + JSON.stringify(actives) + " fade=" + !noFade() + " tl=" + !noTlSel() + " blk=" + !noBlkSel() +
+        " hint=" + hintShown() + " q=" + qorgCurrent());
+    }
+    /* 方向一：P → T（P≠T），转换后唯一选中为 T，P 的残留全消 */
+    for (const p of K) for (const t of K) {
+      if (p === t) continue;
+      resetAll(); apply(p); apply(t);
+      assertWorld("[" + p + "→" + t + "]", t);
+    }
+    /* 方向二：dim/phase/blocker 自我再点 = 关闭，全归零 */
+    for (const k of ["dim", "phase", "blocker"]) {
+      resetAll(); apply(k); apply(k);
+      assertWorld("[" + k + "→关]", null);
+    }
+    /* 方向三：node/link 重复选中不取消，仍唯一选中 */
+    for (const k of ["node", "link"]) {
+      resetAll(); apply(k); apply(k);
+      assertWorld("[" + k + "→再选]", k);
+    }
+    /* 方向四：搜索激活（runBlkSearch）= 互斥清五个态 + 抽屉复位（v19/v26 方向） */
+    resetAll(); apply("dim");
+    const si4 = doc.getElementById("blkSearch");
+    si4.value = "需求"; R.runBlkSearch();
+    assertWorld("[搜索→清维度]", null);
+    /* 方向五：任何选择入口清搜索框（v24/v25 方向） */
+    for (const k of K) {
+      resetAll();
+      const si5 = doc.getElementById("blkSearch");
+      si5.value = "审批"; R.runBlkSearch();
+      apply(k);
+      check("不变量网 [选" + k + "清搜索]：框内词被清、计数器空",
+        si5.value === "" && (doc.getElementById("blkCount").textContent || "") === "",
+        "val=" + JSON.stringify(si5.value));
+      resetAll();
+    }
+    /* wake() 作用域断言：六个入口的函数体各自必须含 wake()——v27 中③正是手写分支漏 wake
+       （作用域级文本：钉的是「函数体内有此调用」，不是字面行，抗格式化） */
+    const bodyOf = name => {
+      const i = mainCode.indexOf("function " + name + "(");
+      if (i < 0) return null;
+      let j = mainCode.indexOf("{", i), depth = 0;
+      for (; j < mainCode.length; j++) {
+        if (mainCode[j] === "{") depth++;
+        else if (mainCode[j] === "}") { depth--; if (depth === 0) break; }
+      }
+      return mainCode.slice(i, j + 1);
+    };
+    for (const fn of ["pickDim", "pickPhase", "selectNode", "selectLink", "runBlkSearch", "buildBlockerEl"]) {
+      const b = bodyOf(fn);
+      check("wake() 作用域：" + fn + " 函数体内含 wake() 调用", !!b && b.includes("wake("),
+        b ? "len=" + b.length : "函数未找到");
+    }
+  } catch (e) { check("v32 状态机不变量网", false, e.message); }
 
   /* ---- v13 内置巡览（异步：driver 的 await 链需要 flush 微任务） ---- */
   (async () => {
