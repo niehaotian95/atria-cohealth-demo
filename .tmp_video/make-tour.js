@@ -2,7 +2,7 @@
  * v13 起巡览脚本已内置主文件：此处只做复制 + 强制自动播放（双击即播）+ 可选 ?loop=1 */
 const fs = require("fs");
 const path = require("path");
-const SRC = path.join(__dirname, "..", "Atria-协同体检中心-v31.html");
+const SRC = path.join(__dirname, "..", "Atria-协同体检中心-v32.html");
 const DST = path.join(__dirname, "tour.html");
 
 let html = fs.readFileSync(SRC, "utf8");

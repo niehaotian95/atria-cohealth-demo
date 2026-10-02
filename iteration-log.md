@@ -826,6 +826,27 @@ viewer-critic 第十八轮通读 v30。用户此时要求「一小时内交付�
 
 ---
 
+## v32：结构性收敛（第三方架构评审 → Step 0 + Step 1）（2026-10-03）
+
+**这一轮不是挑刺轮，是按第三方资深架构师评审做的结构性收缩。** 评审结论：v31 的 88 个顶层函数里，唯一真正在量产回归的结构缺陷是「单过滤器状态机」——6 个互斥选择态、6 个入口、每入口一份手写「清场+重绘」仪式（22 处 teardown、子集互不相同）。v19/v24/v25/v26/v27 每一条「半口径」回归都是某份仪式的缺行。其余缺陷家族（打印取色 / reduced-motion 豁免 / 文案口径 / 窄屏）占最近 10 轮的 70%，**文件拆分一个都修不掉**——所以全量重构被否，走原地收敛。
+
+**Step 0（安全网，+37 条行为断言）**：439 → 476 项。此前断言 42% 是纯文本子串（钉字面不钉行为）；新网钉不变量：任何转换后「五态恰一非空 / 无 dim-fade·sel·open 残留 / 按下态 / netHint 与抽屉口径一致 / 快捷按钮恰一亮」。矩阵覆盖 5×4 交叉转换（P→T）、三个关闭、两个再选、搜索双向互斥。网第一次跑就抓到真东西：**canvas Esc 处理器不清 activePhase、不调 clearTlSel()、却藏 netHint**——真实浏览器里靠 window 冒泡段兜底，巡览激活时 window 段直接 return，留下「画布灰着、提示条已撤」的孤儿半亮态（探针 `probe-esc.js` 坐实）。
+
+**Step 1（原地收敛，约 250 行）**：
+- `setSelection(kind,val,{scroll})` —— 五态唯一写入点（互斥清其余四态；非空选择清搜索框，null 转换从不清——**v24/v26 的 fromBlkSearch 双向护卫整体删除**）
+- `applySelection()` —— 唯一重绘点（选中指示 / dim-fade / 手风琴 / 详情面板 / netHint / updateQuickSel / wake 一把梳）
+- `clearSelection()` —— canvas Esc 与 window Esc 同一出口（半亮态根除）
+- `DETAIL_GUIDE` 常量 + `showGuide()` —— 9 份字节级拷贝（1 HTML + 8 JS）并为 1 份
+- `RENDERERS` 注册表 —— loadData 的手写编排表（6 个 builder）改为声明即注册，加面板不再改六处（v12「按钮永不生成」类事故的根）
+- 六个入口（pickDim / pickPhase / selectNode / selectLink / 卡点 toggle / runBlkSearch）全部降为 2–3 行委托；clearDimSel / clearTlSel / clearBlkSearch / fromBlkSearch 四个死定义删除
+- 校验器桩升级：document 级查询限制在「活 DOM」（innerHTML 重渲染真正摘离子节点），消除了 detached 旧元素虚增命中（q=60 式假象）；219 项旧文本断言换成行为等价或钉新写入点
+
+**验证**：471/0（主文件与 `演示视频工具/tour.html` 双绿）。Expert 评审的 Go/No-go gate（「选择/过滤/口径」家族在新结构下命中应为 0）由不变量网的 5×4 矩阵 + 搜索双向互斥机械覆盖。**未跑下一轮 viewer-critic 通读**（评审亦建议停止挑刺循环——v29/v30 各 3 条轻项，关注点轴已 exhausted）。
+
+**评审给而本轮未做的**：Step 2（12 模块拆分 + build.js）留待「确认还有 ≥5 轮功能迭代」时；关注点矩阵 checklist 机械入校验器（reduced-motion 豁免 / 打印映回两条规则）；修复 diff 三角审。这三条是显式遗留。
+
+---
+
 ## 四、文件清单
 
 | 文件 | 说明 |

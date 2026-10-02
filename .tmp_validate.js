@@ -191,7 +191,10 @@ function mkEl(tag) {
     get textContent() { return this._tc; },
     set textContent(v) { this._tc = String(v); },
     get innerHTML() { return this._html || ""; },
-    set innerHTML(v) { this._html = String(v); this.children = []; },   /* v13：更贴近真实 DOM，重渲染不残留旧子节点 */
+    set innerHTML(v) {   /* v13：更贴近真实 DOM，重渲染不残留旧子节点；v32：旧子节点彻底离树（parentElement 置空），不再被 document 级查询命中 */
+      (this.children || []).forEach(c => { c.parentElement = null; });
+      this._html = String(v); this.children = [];
+    },
     get className() { return [...this.classList._s].join(" "); },
     set className(v) { this.classList._s = new Set(String(v).split(/\s+/).filter(Boolean)); },
     getBoundingClientRect() { return { width: 1200, height: 430, left: 0, top: 0 }; },
@@ -216,10 +219,19 @@ function qsMatch(e, sel) {
     return attrs.every(([k, v]) => v == null ? ((e._attrs || {})[k] != null) : (String((e._attrs || {})[k]) === v));
   });
 }
-function qsAll(sel) {
-  // 支持：.a / .a,.b / #x .y / tag / .a[k="v"]（v12：属性限定）
-  return createdEls.filter(e => qsMatch(e, sel));
+/* v32：document 级查询限制在「活 DOM」——根集 = body / documentElement / 已认领的 id 元素
+   （静态 HTML 的 id 在桩里是孤立根），向下走 children；
+   innerHTML 重渲染与 remove() 会把旧子节点从树里摘掉（不再是 createdEls 命中者）。
+   与元素级 querySelectorAll 的子孙限定同一口径，也消除了 q=60 式的虚增计数 */
+function liveEls() {
+  const live = new Set();
+  const walk = e => { (e.children || []).forEach(c => { live.add(c); walk(c); }); };
+  if (doc.body) walk(doc.body);
+  if (doc.documentElement) walk(doc.documentElement);
+  for (const id in registry) { const r = registry[id]; if (r) walk(r); }
+  return live;
 }
+function qsAll(sel) { const live = liveEls(); return createdEls.filter(e => live.has(e) && qsMatch(e, sel)); }
 const registry = {};
 const doc = {
   _ls: {},
@@ -913,7 +925,8 @@ if (runtime) {
     check("v14：tourCancel 不吞巡览按钮自身的点击", mainCode.includes('closest("#tourBtn")'));
     check("v14：巡览第八幕调 finishTyping 直出全文", /⑨[\s\S]{0,500}finishTyping\(\)/.test(mainCode));
     check("v14：resize() 末尾调 wake()（节能期改变窗口不留白板）", /function resize\(\)\{[\s\S]*?wake\(\);[\s\S]*?\}/.test(mainCode));
-    check("v14：Esc 连维度过滤一起清", mainCode.includes("if(activeDim!==null)pickDim(activeDim)"));
+    check("v14/v32：Esc 走 clearSelection()（canvas 段与 window 段同一出口，不再逐态手写、不留半亮态）",
+    /kbNode=null;\s*clearSelection\(\);/.test(mainCode) && !mainCode.includes("if(activeDim!==null)pickDim(activeDim);"));
     check("v14：编辑应用后与导入一致（curScene=-1 + buildSceneBtns）",
       /editBtn[\s\S]{0,600}curScene=-1;buildSceneBtns\(\)/.test(mainCode));
     check("v14：sayTo 顶部 toast", mainCode.includes('$("sayToast")') && html.includes('id="sayToast"'));
@@ -977,7 +990,8 @@ if (runtime) {
     check("v15：startTour 收起首访气泡", mainCode.includes('const cp=$("coachTip");if(cp)cp.hidden=true;'));
     check("v15：持平不再拼成「持平0 / 持平 分」",
       mainCode.includes('dT===0?"与上次持平"') && mainCode.includes('d<0?d+" 分":"与上次持平"'));
-    check("v15：Esc 同时清卡点选中/展开态", mainCode.includes("activeBlocker=null;clearBlkSel();"));
+    check("v15/v32：Esc 清卡点收进 applySelection（clearBlkSel 由核心调用，Esc 处理器不再直写）",
+    !mainCode.includes("activeBlocker=null;clearBlkSel();") && !mainCode.includes("activeBlocker=null;clearBlkSel()"));
     check("v15：协同亮点空列表有兜底文案", mainCode.includes("当前无运行平稳的标杆关系"));
     check("v15：对比模式点当前场景有提示", mainCode.includes("请选另一个场景作对比"));
     check("v15：卡片编号统一为中文序数（v16：徽章同步中文 / v18：⚖! 并入标题文字，七卡同体系）",
@@ -1108,9 +1122,9 @@ if (runtime) {
 
   try {
     /* 轻⑦：点画布空白取消选中后，右侧详情面板同步复位 */
-    check("v17：pointerUp 空白分支源码（复位详情面板，与 Esc 路径统一；v22：有过滤/联动时保留其说明）",
-      mainCode.includes("if(activeDim===null&&activePhase===null&&activeBlocker===null){") &&
-      mainCode.slice(mainCode.indexOf("function pointerUp"), mainCode.indexOf("canvas.addEventListener(\"mousedown\"")).includes("点击总览五维"));
+    check("v17/v32：pointerUp 空白分支委托 setSelection（清 node/link，其余过滤器与说明由核心保留）",
+      mainCode.slice(mainCode.indexOf("function pointerUp"), mainCode.indexOf("canvas.addEventListener(\"mousedown\"")).includes('setSelection("node",null);') &&
+      mainCode.includes("DETAIL_GUIDE=") && !mainCode.includes("activeDim===null&&activePhase===null&&activeBlocker===null){"));
     const cvb = R.getCanvas();
     const up = (cvb._ls.find(x => x[0] === "mouseup") || [])[1];
     check("v17：canvas mouseup（pointerUp）监听已注册", !!up);
@@ -1148,8 +1162,8 @@ if (runtime) {
 
   try {
     /* 中①：取消维度过滤后行按下态同步清除（aria-pressed 跟着 activeDim 走） */
-    check("v18：pickDim 按下态源码带 activeDim 保护",
-      mainCode.includes('(activeDim!==null&&di===i)?"true":"false"'));
+    check("v18/v32：applySelection 按下态带 activeDim 保护（取消过滤连按下态一起清）",
+      mainCode.includes('(activeDim!==null&&di===activeDim)?"true":"false"'));
     R.pickDim(0);
     R.pickDim(0);   /* 再点一次 = 取消过滤 */
     const stillPressed = qsAll(".dim-row").filter(r => (r._attrs || {})["aria-pressed"] === "true");
@@ -1401,8 +1415,8 @@ if (runtime) {
       const doc9 = fs.readFileSync(mdPath, "utf8");
       check("v19：常见问题含 .webm 播放指引（拖进 Chrome/Edge + Web Media Extensions + MP4 路径）",
         doc9.includes("拖进 Chrome / Edge") && doc9.includes("Web Media Extensions") && doc9.includes("完整版 ffmpeg"));
-      check("v23：使用说明版本引用同步为 v31（无残留 v30.html）",   /* v31：版本引用随本轮 v30→v31 同步（历史同款漂移） */
-        doc9.includes("Atria-协同体检中心-v31.html") && !doc9.includes("v30.html"));
+      check("v23：使用说明版本引用同步为 v32（无残留 v31.html）",   /* v31：版本引用随本轮 v30→v31 同步（历史同款漂移） */
+        doc9.includes("Atria-协同体检中心-v32.html") && !doc9.includes("v30.html"));
       check("v23：使用说明主推双击 tour.html，?tour=1 降为浏览器地址栏备选（含 file:// 写法、点明资源管理器不认）",
         doc9.includes("双击即播") && doc9.includes("file:///") && doc9.includes("不是 Windows 资源管理器地址栏"));
     }
@@ -1637,8 +1651,8 @@ if (runtime) {
        收尾已与 selectLink 同口径（clearDimSel + showNode 收 netHint），描述的混合态无法复现；
        加运行时回归断言锁定，防止未来真回归 */
     const nodeSrc = mainCode.slice(mainCode.indexOf("function selectNode"), mainCode.indexOf("function selectLink"));
-    check("v22：selectNode 收尾含 clearDimSel（与 selectLink 同口径——本轮挑刺条目核实为误报）",
-      nodeSrc.includes("clearBlkSel();clearTlSel();clearDimSel();"));
+    check("v22/v32：selectNode / selectLink 均为 setSelection 委托（「误报核实」的口径差由核心根除）",
+      nodeSrc.includes('setSelection("node",n,{scroll:true});') && mainCode.slice(mainCode.indexOf("function selectLink"), mainCode.indexOf("function jumpToBlocker")).includes('setSelection("link",l,{scroll:true});'));
     let attrDim = -1;
     for (let d = 0; d < (R.DATA.dims || []).length; d++) {
       if (R.getAttrMap().some(a => a === d)) { attrDim = d; break; }
@@ -1661,8 +1675,8 @@ if (runtime) {
 
   try {
     /* 轻⑥：网络图空白点击收掉「高亮 N 个关联主体」说明条，但维度 / 阶段过滤还生效（灰着却无人解释） */
-    check("v22：pointerUp 空白分支有过滤器时保留 netHint（源码）",
-      mainCode.includes("if(activeDim===null&&activePhase===null&&activeBlocker===null){"));
+    check("v22/v32：applySelection 按当前态渲染 netHint（空白点击有过滤时保留说明）",
+      mainCode.includes("function showGuide(){detail.innerHTML=DETAIL_GUIDE;}") && mainCode.includes("DETAIL_GUIDE="));
     let attrDim6 = -1;
     for (let d = 0; d < (R.DATA.dims || []).length; d++) {
       if (R.getAttrMap().some(a => a === d)) { attrDim6 = d; break; }
@@ -1908,14 +1922,15 @@ if (runtime) {
   try {
     /* 中③：点维度 / 阶段 / 卡点时不清搜索框——搜索与归因两套过滤叠在一起互相打架；
        与输入路径（输入清维度，v19 只实现单向）对称：任一过滤选择清搜索框并重跑 */
-    check("v24：pickDim / pickPhase / selectNode / 卡点点击四个入口都调 clearBlkSearch",
-      mainCode.includes("clearBlkSel();clearTlSel();updateQuickSel();if(!fromBlkSearch)clearBlkSearch();") &&
-      mainCode.includes("clearBlkSel();updateQuickSel();clearDimSel();if(!fromBlkSearch)clearBlkSearch();") &&   /* v26：pickPhase 补 fromBlkSearch 保护（输入路径的互斥清阶段不反清搜索框），子串随实现漂移 */
-      mainCode.includes("clearBlkSel();clearTlSel();clearDimSel();clearBlkSearch();") &&
-      mainCode.includes("clearBlkSel();clearBlkSearch();"));
-    check("v24：清搜索助手 + 输入路径反清保护（clearBlkSearch / fromBlkSearch）",
-      mainCode.includes("function clearBlkSearch(){") &&
-      mainCode.includes("fromBlkSearch=true;try{pickDim(activeDim);}finally{fromBlkSearch=false;}"));
+    check("v24/v32：清搜索收进 setSelection（非空选择才清），五个入口共享同一规则",
+      /* v32：清搜索规则收进 setSelection（非空选择才清）——对应当年前四个入口的手写行 */
+      /setSelection\(kind,val,opts\){[\s\S]{0,700}if\(si&&si\.value\)/.test(mainCode) &&
+      /* 旧卡点 toggle 的手风琴清场行已删（委托核心） */
+      !mainCode.includes("clearBlkSel();clearBlkSearch();") && !mainCode.includes("clearBlkSel();clearTlSel();clearDimSel();")),
+    check("v24/v32：fromBlkSearch 护卫已删（null 转换从不清搜索，搜索互斥清场走 null 路径）",
+      /* 注释里提到了这个词不算——只钉真正的代码符号 */
+      !/let\s+fromBlkSearch/.test(mainCode) && !/fromBlkSearch\s*=/.test(mainCode) &&
+      !/function\s+clearBlkSearch\s*\(/.test(mainCode));
     const si24 = doc.getElementById("blkSearch");
     const cnt24 = doc.getElementById("blkCount");
     const term24 = ((R.DATA.blockers || [])[0] || {}).t || "审批";   /* 场景 0 首卡标题，必命中 */
@@ -1957,12 +1972,12 @@ if (runtime) {
        画布点选 / 快捷按钮 / 键盘 Enter 三条路径都点不亮快捷按钮（v3/v4 老口径被 v7 挤掉） */
     const snIdx = mainCode.indexOf("function selectNode(n){");
     const sn = snIdx > 0 ? mainCode.slice(snIdx, snIdx + 420) : "";
-    check("v25：selectNode 收尾补 updateQuickSel（快捷按钮随选中态亮起 / 随取消熄灭）",
-      sn.includes("clearBlkSearch();updateQuickSel();") && sn.includes("showNode(n);"));
+    check("v25/v32：updateQuickSel 唯一调用点在 applySelection（快捷按钮选中态不再散落各入口）",
+      sn.includes('setSelection("node",n,{scroll:true});') && !sn.includes("updateQuickSel();"));
     const slIdx = mainCode.indexOf("function selectLink(l){");
     const sl = slIdx > 0 ? mainCode.slice(slIdx, slIdx + 420) : "";
-    check("v25：selectLink 收尾补 updateQuickSel + clearBlkSearch（第五个选择入口同口径）",
-      sl.includes("clearBlkSearch();updateQuickSel();") && sl.includes("showLink(l);"));
+    check("v25/v32：selectLink 同为 setSelection 委托（第五入口与四个入口同口径成为结构保证）",
+      sl.includes('setSelection("link",l,{scroll:true});') && !sl.includes("updateQuickSel();"));
     /* 运行时：updateQuickSel 在桩环境走 document.querySelectorAll 会带进历史场景的旧按钮（真实
        浏览器已 detach），故只断言当前 #qorgs 组内的按钮 */
     const qoBox = doc.getElementById("qorgs");
@@ -2085,10 +2100,13 @@ if (runtime) {
     /* 中②静态：输入搜索词时只清维度、不清阶段 / 卡点 / 主体——三套状态同屏并存，与 v24 反向
        「选择清搜索」不对称；输入时统一按各自关闭分支清掉，fromBlkSearch 保护正输入的字
        不被 pickPhase 的清搜索抹掉（与 pickDim 同理） */
-    check("v26：runBlkSearch 输入时清阶段 / 卡点 / 主体（与 v24 反向口径对称）",
-      mainCode.includes("if(activePhase!==null){fromBlkSearch=true;try{pickPhase(activePhase);}finally{fromBlkSearch=false;}}") &&
-      mainCode.includes("activeBlocker=null;selNode=null;selLink=null;") &&
-      mainCode.includes("clearBlkSel();updateQuickSel();"));
+    check("v26/v32：runBlkSearch 互斥清场走 setSelection(*,null)（与 v24 反向对称成为结构保证）",
+      /* v32：fromBlkSearch 只剩注释（见上条：钉符号不钉词） */
+      !/let\s+fromBlkSearch/.test(mainCode) && !/fromBlkSearch\s*=/.test(mainCode) &&
+      /if\(activeDim!==null\)setSelection\(\"dim\",null\)/.test(mainCode) &&
+      /if\(activeBlocker!==null\|\|selNode\|\|selLink\)/.test(mainCode) && /* v26 互斥清场仍在，但分支体是 setSelection 调用 */
+      /* runBlkSearch 的手写清场分支已删（clearSelection 自身的多重赋值合法，须按函数体范围验） */
+      (()=>{const i=mainCode.indexOf("function runBlkSearch");const j=mainCode.indexOf("function clearBlkSel");const b=mainCode.slice(i,j>0?j:i+3000);return !b.includes("activeBlocker=null;selNode=null;selLink=null;")&&!b.includes("clearBlkSel();updateQuickSel();");})());
     /* 中③静态：≤640px 悬浮章节导航 fixed 竖排按钮组压卡片正文右缘约 19px 且截点触——窄屏隐藏；
        轻④静态：首访气泡 right:86px+max-width:300px 在 375px 视口左缘落 -11px——收到 12px /
        min(300px,100vw-40px)；轻⑤静态：减少动态块关 .report .caret 的 blink 无限闪烁 */
@@ -2189,8 +2207,9 @@ if (runtime) {
     /* 中③静态：runBlkSearch 清主体 / 卡点 / 关系选中分支漏 wake()——画布静止约 1.5 秒即暂停
        raf，选中圈 / 淡出只存在位图上；DOM 状态复位后位图残留到下一次画布交互（同函数
        pickDim / pickPhase 两分支各自会 wake，独此手写分支漏了） */
-    check("v27：搜索清选分支补 wake()（暂停画布按清空状态重绘一帧，消除位图残留选中圈）",
-      mainCode.includes("if(activeBlocker!==null||selNode||selLink){\n        activeBlocker=null;selNode=null;selLink=null;\n        clearBlkSel();updateQuickSel();\n        $(\"netHint\").classList.remove(\"show\");\n        detail.innerHTML=`<h3>诊断详情</h3><div class=\"empty\">点击总览五维、时间轴阶段、网络中的主体或关系、或下方卡点，在此查看结构化诊断。</div>`;\n        wake();"));
+    check("v27/v32：wake() 唯一出口在 applySelection（手写分支漏 wake 成为本结构的不可能事件）",
+      /* v32：wake 唯一出口在 applySelection——手写分支漏 wake 成为结构上的不可能事件 */
+      (()=>{const i=mainCode.indexOf("function applySelection(");const j=mainCode.indexOf("function clearSelection(");const body=mainCode.slice(i,j);return body.includes("wake();")&&body.includes("showGuide();")&&body.includes("updateQuickSel();")&&body.includes("renderDimDetail(");})());
     /* 中④静态：canvas Escape 分支开头先判 kbdHelp 是否打开，打开则直接 return 交给 window
        处理器走「弹层优先关」口径（canvas 处理器在冒泡链上先执行，原会把选中 / 搜索词清一半、
        漏掉 activePhase 与 clearTlSel()，留下半亮孤儿过滤） */
@@ -2200,9 +2219,10 @@ if (runtime) {
        调用——窄屏（≤920px）详情面板排在整页末尾，选中后复用风险速览两入口同款滚到详情 */
     check("v27：scrollDetailNarrow 封装（≤920px 才滚、走尊重 prefers-reduced-motion 的 smoothScroll）",
       mainCode.includes("function scrollDetailNarrow(){\n  if(typeof window.innerWidth!==\"number\"||window.innerWidth>920)return;\n  smoothScroll(detail,\"nearest\");\n}"));
-    check("v27：五个选中入口均调 scrollDetailNarrow（窄屏详情随选中入镜，与风险速览同款）",
-      (mainCode.match(/scrollDetailNarrow\(\);/g) || []).length === 5 &&
-      mainCode.includes("showNode(n);\n  wake();\n  scrollDetailNarrow();"));
+    check("v27/v32：五个选中入口向 setSelection 传 scroll（核心内按当前态决定是否窄屏入镜）",
+      /* v32：五个选中入口向核心传 scroll，核心内按当前态决定是否窄屏入镜 */
+      (()=>{const i=mainCode.indexOf("function applySelection(");const j=mainCode.indexOf("function clearSelection(");const body=mainCode.slice(i,j);return (body.match(/scrollDetailNarrow\(\);/g)||[]).length===5;})() &&
+      mainCode.includes('setSelection("dim",was?null:i,{scroll:true});') && !mainCode.includes("scrollDetailNarrow();\n  wake();"));
     /* 轻⑦静态：单条标杆关系的单数句（与详情面板 showLink 的单数口径一致），三路共源同改 */
     check("v27：报告五节单条关系输出单数句（good.length===1，复数才保留「等」）",
       mainCode.includes("good.length===1") &&
@@ -2554,6 +2574,9 @@ if (runtime) {
       const okFade = (s.dim === null) ? noFade() : true;        /* dim 选中时淡出应在 */
       const okTl = (s.phase === null) ? noTlSel() : true;
       const okBlk = (s.blocker === null) ? noBlkSel() : true;
+      const okPressed =
+        doc.querySelectorAll('.dim-row[aria-pressed="true"]').length === (s.dim === null ? 0 : 1) &&
+        doc.querySelectorAll('.tl-m[aria-pressed="true"]').length === (s.phase === null ? 0 : 1);   /* v18 口径：取消过滤连按下态一起清 */
       const okHint = hintShown() === (s.dim !== null || s.phase !== null || s.blocker !== null);
       const okQ = qorgCurrent() === (s.node ? 1 : 0);
       let okDetail = false;
@@ -2563,8 +2586,8 @@ if (runtime) {
       else if (expectKind === "node") okDetail = R.getSelNode() && R.detail.innerHTML.includes(String(R.getSelNode().name));
       else if (expectKind === "link") okDetail = R.detail.innerHTML.includes("协同关系");
       else okDetail = guideInDetail();
-      check("不变量网 " + tag + "：唯一选中=" + expectKind + " / 无残留 / 提示条 / 抽屉 / 快捷按钮五口径",
-        okActive && okFade && okTl && okBlk && okHint && okQ && okDetail,
+      check("不变量网 " + tag + "：唯一选中=" + expectKind + " / 无残留 / 按下态 / 提示条 / 抽屉 / 快捷按钮六口径",
+        okActive && okFade && okTl && okBlk && okPressed && okHint && okQ && okDetail,
         "actives=" + JSON.stringify(actives) + " fade=" + !noFade() + " tl=" + !noTlSel() + " blk=" + !noBlkSel() +
         " hint=" + hintShown() + " q=" + qorgCurrent());
     }
@@ -2612,7 +2635,7 @@ if (runtime) {
       }
       return mainCode.slice(i, j + 1);
     };
-    for (const fn of ["pickDim", "pickPhase", "selectNode", "selectLink", "runBlkSearch", "buildBlockerEl"]) {
+    for (const fn of ["applySelection"]) {
       const b = bodyOf(fn);
       check("wake() 作用域：" + fn + " 函数体内含 wake() 调用", !!b && b.includes("wake("),
         b ? "len=" + b.length : "函数未找到");
